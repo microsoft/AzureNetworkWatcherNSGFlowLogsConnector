@@ -1,0 +1,12 @@
+﻿{
+  "disabled": false,
+  "bindings": [
+    {
+      "name": "inputChunk",
+      "type": "queueTrigger",
+      "direction": "in",
+      "queueName": "nsgtransmissions",
+      "connection": "AzureWebJobsStorage"
+    }
+  ]
+}

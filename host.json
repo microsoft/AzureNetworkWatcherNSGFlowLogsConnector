@@ -1,0 +1,6 @@
+{
+    "queues": {
+      "batchSize": 4
+    },
+    "functionTimeout": "00:05:00"
+}
