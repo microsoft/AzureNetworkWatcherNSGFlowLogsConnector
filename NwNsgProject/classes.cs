@@ -36,7 +36,7 @@ class NSGFlowLogTuple
     public override string ToString()
     {
         string temp = "";
-        temp += "rt=" + (Convert.ToInt32(startTime) * 1000).ToString();
+        temp += "rt=" + (Convert.ToUInt64(startTime) * 1000).ToString();
         temp += " src=" + sourceAddress;
         temp += " dst=" + destinationAddress;
         temp += " spt=" + sourcePort;
