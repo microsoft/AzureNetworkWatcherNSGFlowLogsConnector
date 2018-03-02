@@ -7,12 +7,13 @@ This project installs into an Azure Function in your Azure subscription. Its job
 In the Application Settings of your Azure Function:
 * AzureWebJobsStorage - required by all Azure Functions
 * AzureWebJobsDashboard - required by all Azure Functions
-* nsgtelemetry - the connection string of the storage account that receives your NSG flow logs
-* nsgSourceDataAccount - points to the connection string, so in the simplest case, "nsgtelemetry" is what you need to enter
-* blobContainerName - usually "insights-logs-networksecuritygroupflowevent"
-* logstashAddress - something like "http://mylogstashurl:8080"
-* logstashHttpUser - Http username configured in your Logstash config
-* logstashHttpPwd - Http password configured in your Logstash config
+* nsgSourceDataConnection - an Azure storage account connection string, the account where NSG flow logs land
+* outputBinding - 'arcsight' (there may be other options in future)
+* arcsightAddress - an IP address or DNS name for your ArcSight server/service
+* arcsightPort - TCPIP port, usually 1514
+* cefLogAccount - an Azure storage account connection string. Needed only if you want to log incoming JSON files and outgoing CEF files.
+* logIncomingJSON - true/false
+* logOutgoingCEF - true/false
 
 # Contributing
 
