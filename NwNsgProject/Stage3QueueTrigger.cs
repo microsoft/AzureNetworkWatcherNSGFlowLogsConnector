@@ -159,10 +159,12 @@ namespace NwNsgProject
             string cefRecordBase = "";
             foreach (var record in logs.records)
             {
+                float version = record.properties.Version;
+
                 cefRecordBase = record.MakeCEFTime();
                 cefRecordBase += "|Microsoft.Network";
                 cefRecordBase += "|NETWORKSECURITYGROUPS";
-                cefRecordBase += "|" + record.properties.Version.ToString("0.0");
+                cefRecordBase += "|" + version.ToString("0.0");
                 cefRecordBase += "|" + record.category;
                 cefRecordBase += "|" + record.operationName;
                 cefRecordBase += "|1";  // severity is always 1
@@ -182,7 +184,7 @@ namespace NwNsgProject
                         var firstFlowTupleEncountered = true;
                         foreach (var flowTuple in innerFlows.flowTuples)
                         {
-                            var tuple = new NSGFlowLogTuple(flowTuple);
+                            var tuple = new NSGFlowLogTuple(flowTuple, version);
 
                             if (firstFlowTupleEncountered)
                             {

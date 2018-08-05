@@ -5,6 +5,8 @@ using Newtonsoft.Json;
 
 class NSGFlowLogTuple
 {
+    float schemaVersion;
+
     string startTime;
     string sourceAddress;
     string destinationAddress;
@@ -14,8 +16,17 @@ class NSGFlowLogTuple
     string deviceDirection;
     string deviceAction;
 
-    public NSGFlowLogTuple(string tuple)
+    // version 2 tuple properties
+    string flowState;
+    string packetsStoD;
+    string bytesStoD;
+    string packetsDtoS;
+    string bytesDtoS;
+
+    public NSGFlowLogTuple(string tuple, float version)
     {
+        schemaVersion = version;
+
         char[] sep = new char[] { ',' };
         string[] parts = tuple.Split(sep);
         startTime = parts[0];
@@ -26,6 +37,15 @@ class NSGFlowLogTuple
         transportProtocol = parts[5];
         deviceDirection = parts[6];
         deviceAction = parts[7];
+
+        if (version >= 2.0)
+        {
+            flowState = parts[8];
+            packetsStoD = parts[9];
+            bytesStoD = parts[10];
+            packetsDtoS = parts[11];
+            bytesDtoS = parts[12];
+        }
     }
 
     public string GetDirection
@@ -44,6 +64,12 @@ class NSGFlowLogTuple
         temp += " proto=" + (transportProtocol == "U" ? "UDP" : "TCP");
         temp += " deviceDirection=" + (deviceDirection == "I" ? "0" : "1");
         temp += " act=" + deviceAction;
+
+        if (schemaVersion >= 2.0)
+        {
+            // add fields from version 2 schema
+            ;
+        }
 
         return temp;
     }
