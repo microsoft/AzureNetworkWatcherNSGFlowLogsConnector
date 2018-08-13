@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
@@ -47,6 +48,21 @@ class NSGFlowLogTuple
 
         return temp;
     }
+
+    public string JsonSubString()
+    {
+        var sb = new StringBuilder();
+        sb.Append(",\"rt\":\"").Append((Convert.ToUInt64(startTime) * 1000).ToString()).Append("\"");
+        sb.Append(",\"src\":\"").Append(sourceAddress).Append("\"");
+        sb.Append(",\"dst\":\"").Append(destinationAddress).Append("\"");
+        sb.Append(",\"spt\":\"").Append(sourcePort).Append("\"");
+        sb.Append(",\"dpt\":\"").Append(destinationPort).Append("\"");
+        sb.Append(",\"proto\":\"").Append((transportProtocol == "U" ? "UDP" : "TCP")).Append("\"");
+        sb.Append(",\"deviceDirection\":\"").Append((deviceDirection == "I" ? "0" : "1")).Append("\"");
+        sb.Append(",\"act\":\"").Append(deviceAction).Append("\"");
+
+        return sb.ToString();
+    }
 }
 
 class NSGFlowLogsInnerFlows
@@ -56,15 +72,24 @@ class NSGFlowLogsInnerFlows
 
     public string MakeMAC()
     {
-        string temp = "";
-        temp += mac.Substring(0, 2) + ":";
-        temp += mac.Substring(2, 2) + ":";
-        temp += mac.Substring(4, 2) + ":";
-        temp += mac.Substring(6, 2) + ":";
-        temp += mac.Substring(8, 2) + ":";
-        temp += mac.Substring(10, 2);
+        //string temp = "";
+        //temp += mac.Substring(0, 2) + ":";
+        //temp += mac.Substring(2, 2) + ":";
+        //temp += mac.Substring(4, 2) + ":";
+        //temp += mac.Substring(6, 2) + ":";
+        //temp += mac.Substring(8, 2) + ":";
+        //temp += mac.Substring(10, 2);
 
-        return temp;
+        //return temp;
+
+        var sb = new StringBuilder();
+        sb.Append(mac.Substring(0, 2)).Append(":");
+        sb.Append(mac.Substring(2,2)).Append(":");
+        sb.Append(mac.Substring(4,2)).Append(":");
+        sb.Append(mac.Substring(6,2)).Append(":");
+        sb.Append(mac.Substring(8,2)).Append(":");
+        sb.Append(mac.Substring(10,2)).Append(":");
+        return sb.ToString();
     }
 }
 
