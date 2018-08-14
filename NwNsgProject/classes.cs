@@ -68,7 +68,22 @@ class NSGFlowLogTuple
         if (schemaVersion >= 2.0)
         {
             // add fields from version 2 schema
-            ;
+            temp += String.Format(" cs2={0}", flowState);
+            temp += String.Format(" cs2Label=FlowState");
+            temp += String.Format(" cn1={0}", packetsStoD);
+            temp += String.Format(" cn1Label=PacketsStoD");
+            temp += String.Format(" cn2={0}", packetsDtoS);
+            temp += String.Format(" cn2Label=PacketsDtoS");
+
+            if (deviceDirection == "I")
+            {
+                temp += String.Format(" bytesIn={0}", bytesStoD);
+                temp += String.Format(" bytesOut={0}", bytesDtoS);
+            } else
+            {
+                temp += String.Format(" bytesIn={0}", bytesDtoS);
+                temp += String.Format(" bytesOut={0}", bytesStoD);
+            }
         }
 
         return temp;
