@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
 class NSGFlowLogTuple
 {
+    float schemaVersion;
+
     string startTime;
     string sourceAddress;
     string destinationAddress;
@@ -14,8 +17,17 @@ class NSGFlowLogTuple
     string deviceDirection;
     string deviceAction;
 
-    public NSGFlowLogTuple(string tuple)
+    // version 2 tuple properties
+    string flowState;
+    string packetsStoD;
+    string bytesStoD;
+    string packetsDtoS;
+    string bytesDtoS;
+
+    public NSGFlowLogTuple(string tuple, float version)
     {
+        schemaVersion = version;
+
         char[] sep = new char[] { ',' };
         string[] parts = tuple.Split(sep);
         startTime = parts[0];
@@ -26,6 +38,18 @@ class NSGFlowLogTuple
         transportProtocol = parts[5];
         deviceDirection = parts[6];
         deviceAction = parts[7];
+
+        if (version >= 2.0)
+        {
+            flowState = parts[8];
+            if (flowState != "B")
+            {
+                packetsStoD = parts[9];
+                bytesStoD = parts[10];
+                packetsDtoS = parts[11];
+                bytesDtoS = parts[12];
+            }
+        }
     }
 
     public string GetDirection
@@ -35,17 +59,43 @@ class NSGFlowLogTuple
 
     public override string ToString()
     {
-        string temp = "";
-        temp += "rt=" + (Convert.ToUInt64(startTime) * 1000).ToString();
-        temp += " src=" + sourceAddress;
-        temp += " dst=" + destinationAddress;
-        temp += " spt=" + sourcePort;
-        temp += " dpt=" + destinationPort;
-        temp += " proto=" + (transportProtocol == "U" ? "UDP" : "TCP");
-        temp += " deviceDirection=" + (deviceDirection == "I" ? "0" : "1");
-        temp += " act=" + deviceAction;
+        var temp = new StringBuilder();
+        temp.Append("rt=").Append((Convert.ToUInt64(startTime) * 1000).ToString());
+        temp.Append(" src=").Append(sourceAddress);
+        temp.Append(" dst=").Append(destinationAddress);
+        temp.Append(" spt=").Append(sourcePort);
+        temp.Append(" dpt=").Append(destinationPort);
+        temp.Append(" proto=").Append((transportProtocol == "U" ? "UDP" : "TCP"));
+        temp.Append(" deviceDirection=").Append((deviceDirection == "I" ? "0" : "1"));
+        temp.Append(" act=").Append(deviceAction);
 
-        return temp;
+        if (schemaVersion >= 2.0)
+        {
+            // add fields from version 2 schema
+            temp.Append(" cs2=").Append(flowState);
+            temp.Append(" cs2Label=FlowState");
+
+            if (flowState != "B")
+            {
+                temp.Append(" cn1=").Append(packetsStoD);
+                temp.Append(" cn1Label=PacketsStoD");
+                temp.Append(" cn2=").Append(packetsDtoS);
+                temp.Append(" cn2Label=PacketsDtoS");
+
+                if (deviceDirection == "I")
+                {
+                    temp.Append(" bytesIn={0}").Append(bytesStoD);
+                    temp.Append(" bytesOut={0}").Append(bytesDtoS);
+                }
+                else
+                {
+                    temp.Append(" bytesIn={0}").Append(bytesDtoS);
+                    temp.Append(" bytesOut={0}").Append(bytesStoD);
+                }
+            }
+        }
+
+        return temp.ToString();
     }
 }
 
@@ -56,15 +106,15 @@ class NSGFlowLogsInnerFlows
 
     public string MakeMAC()
     {
-        string temp = "";
-        temp += mac.Substring(0, 2) + ":";
-        temp += mac.Substring(2, 2) + ":";
-        temp += mac.Substring(4, 2) + ":";
-        temp += mac.Substring(6, 2) + ":";
-        temp += mac.Substring(8, 2) + ":";
-        temp += mac.Substring(10, 2);
+        var temp = new StringBuilder();
+        temp.Append(mac.Substring(0, 2)).Append(":");
+        temp.Append(mac.Substring(2, 2)).Append(":");
+        temp.Append(mac.Substring(4, 2)).Append(":");
+        temp.Append(mac.Substring(6, 2)).Append(":");
+        temp.Append(mac.Substring(8, 2)).Append(":");
+        temp.Append(mac.Substring(10, 2));
 
-        return temp;
+        return temp.ToString();
     }
 }
 
