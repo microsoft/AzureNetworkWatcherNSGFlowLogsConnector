@@ -174,21 +174,23 @@ namespace NwNsgProject
             string cefRecordBase = "";
             foreach (var record in logs.records)
             {
+                float version = record.properties.Version;
+
                 cefRecordBase = record.MakeCEFTime();
                 cefRecordBase += "|Microsoft.Network";
                 cefRecordBase += "|NETWORKSECURITYGROUPS";
-                cefRecordBase += "|" + record.properties.Version.ToString("0.0");
+                cefRecordBase += "|" + version.ToString("0.0");
                 cefRecordBase += "|" + record.category;
                 cefRecordBase += "|" + record.operationName;
                 cefRecordBase += "|1";  // severity is always 1
                 cefRecordBase += "|deviceExternalId=" + record.MakeDeviceExternalID();
 
-                int count = 1;
                 foreach (var outerFlows in record.properties.flows)
                 {
+                    // expectation is that there is only ever 1 item in record.properties.flows
                     string cefOuterFlowRecord = cefRecordBase;
-                    cefOuterFlowRecord += String.Format(" cs{0}=", count) + outerFlows.rule;
-                    cefOuterFlowRecord += String.Format(" cs{0}Label=NSGRuleName", count++);
+                    cefOuterFlowRecord += String.Format(" cs1={0}", outerFlows.rule);
+                    cefOuterFlowRecord += String.Format(" cs1Label=NSGRuleName");
 
                     foreach (var innerFlows in outerFlows.flows)
                     {
@@ -197,7 +199,7 @@ namespace NwNsgProject
                         var firstFlowTupleEncountered = true;
                         foreach (var flowTuple in innerFlows.flowTuples)
                         {
-                            var tuple = new NSGFlowLogTuple(flowTuple);
+                            var tuple = new NSGFlowLogTuple(flowTuple, version);
 
                             if (firstFlowTupleEncountered)
                             {
