@@ -9,6 +9,8 @@ using Newtonsoft.Json;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography.X509Certificates;
+using System.Net.Security;
 
 namespace NwNsgProject
 {
@@ -73,6 +75,16 @@ namespace NwNsgProject
 
         public static async Task SendMessagesDownstream(string myMessages, TraceWriter log)
         {
+            //
+            // myMessages looks like this:
+            // {
+            //   "records":[
+            //     {...},
+            //     {...}
+            //     ...
+            //   ]
+            // }
+            //
             string outputBinding = Util.GetEnvironmentVariable("outputBinding");
             if (outputBinding.Length == 0)
             {
@@ -87,6 +99,9 @@ namespace NwNsgProject
                     break;
                 case "arcsight":
                     await obArcsight(myMessages, log);
+                    break;
+                case "splunk":
+                    await obSplunk(myMessages, log);
                     break;
             }
         }
@@ -254,8 +269,20 @@ namespace NwNsgProject
                 log.Error($"Exception logging record: {ex.Message}");
             }
         }
+
         static async Task obArcsight(string newClientContent, TraceWriter log)
         {
+            //
+            // newClientContent looks like this:
+            //
+            // {
+            //   "records":[
+            //     {...},
+            //     {...}
+            //     ...
+            //   ]
+            // }
+            //
             string arcsightAddress = Util.GetEnvironmentVariable("arcsightAddress");
             string arcsightPort = Util.GetEnvironmentVariable("arcsightPort");
 
@@ -302,6 +329,187 @@ namespace NwNsgProject
                 }
             }
             await stream.FlushAsync();
+        }
+
+        public static bool ValidateMyCert(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors sslErr)
+        {
+            var splunkCertThumbprint = Util.GetEnvironmentVariable("splunkCertThumbprint");
+
+            // if user has not configured a cert, anything goes
+            if (splunkCertThumbprint == "")
+                return true;
+
+            // if user has configured a cert, must match
+            var thumbprint = cert.GetCertHashString();
+            if (thumbprint == splunkCertThumbprint)
+                return true;
+
+            return false;
+        }
+
+        static async Task obSplunk(string newClientContent, TraceWriter log)
+        {
+            //
+            // newClientContent looks like this:
+            //
+            // {
+            //   "records":[
+            //     {...},
+            //     {...}
+            //     ...
+            //   ]
+            // }
+            //
+
+            string splunkAddress = Util.GetEnvironmentVariable("splunkAddress");
+            string splunkToken = Util.GetEnvironmentVariable("splunkToken");
+
+            if (splunkAddress.Length == 0 || splunkToken.Length == 0)
+            {
+                log.Error("Values for splunkAddress and splunkToken are required.");
+                return;
+            }
+
+            ServicePointManager.Expect100Continue = true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.ServerCertificateValidationCallback += new RemoteCertificateValidationCallback(ValidateMyCert);
+
+            var transmission = new StringBuilder();
+            foreach (var message in convertToSplunk(newClientContent, null, log))
+            {
+                //
+                // message looks like this:
+                //
+                // {
+                //   "time": "xxx",
+                //   "category": "xxx",
+                //   "operationName": "xxx",
+                //   "version": "xxx",
+                //   "deviceExtId": "xxx",
+                //   "flowOrder": "xxx",
+                //   "nsgRuleName": "xxx",
+                //   "dmac|smac": "xxx",
+                //   "rt": "xxx",
+                //   "src": "xxx",
+                //   "dst": "xxx",
+                //   "spt": "xxx",
+                //   "dpt": "xxx",
+                //   "proto": "xxx",
+                //   "deviceDirection": "xxx",
+                //   "act": "xxx"
+                //  }
+                transmission.Append(GetSplunkEventFromMessage(message));
+            }
+
+            var client = new SingleHttpClientInstance();
+            try
+            {
+                HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, splunkAddress);
+                req.Headers.Accept.Clear();
+                req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                req.Headers.Add("Authorization", "Splunk " + splunkToken);
+                req.Content = new StringContent(transmission.ToString(), Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await SingleHttpClientInstance.SendToSplunk(req);
+                if (response.StatusCode != HttpStatusCode.OK)
+                {
+                    throw new System.Net.Http.HttpRequestException($"StatusCode from Splunk: {response.StatusCode}, and reason: {response.ReasonPhrase}");
+                }
+            }
+            catch (System.Net.Http.HttpRequestException e)
+            {
+                throw new System.Net.Http.HttpRequestException("Sending to Splunk. Is Splunk service running?", e);
+            }
+            catch (Exception f)
+            {
+                throw new System.Exception("Sending to Splunk. Unplanned exception.", f);
+            }
+
+        }
+
+        static System.Collections.Generic.IEnumerable<string> convertToSplunk(string newClientContent, Binder errorRecordBinder, TraceWriter log)
+        {
+            //
+            // newClientContent looks like this:
+            //
+            // {
+            //   "records":[
+            //     {...},
+            //     {...}
+            //     ...
+            //   ]
+            // }
+            //
+
+            NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
+
+            string logIncomingJSON = Util.GetEnvironmentVariable("logIncomingJSON");
+            Boolean flag;
+            if (Boolean.TryParse(logIncomingJSON, out flag))
+            {
+                if (flag)
+                {
+                    logErrorRecord(newClientContent, errorRecordBinder, log).Wait();
+                }
+            }
+
+            var sbBase = new StringBuilder();
+            foreach (var record in logs.records)
+            {
+                sbBase.Clear();
+                sbBase.Append("{");
+                sbBase.Append("\"time\":\"").Append(record.time).Append("\"");
+                sbBase.Append(",\"category\":\"").Append(record.category).Append("\"");
+                sbBase.Append(",\"operationName\":\"").Append(record.operationName).Append("\"");
+                sbBase.Append(",\"version\":\"").Append(record.properties.Version.ToString("0.0")).Append("\"");
+                sbBase.Append(",\"deviceExtId\":\"").Append(record.MakeDeviceExternalID()).Append("\"");
+
+                int count = 1;
+                var sbOuterFlowRecord = new StringBuilder();
+                foreach (var outerFlows in record.properties.flows)
+                {
+                    sbOuterFlowRecord.Clear();
+                    sbOuterFlowRecord.Append(sbBase.ToString());
+                    sbOuterFlowRecord.Append(",\"flowOrder\":\"").Append(count).Append("\"");
+                    sbOuterFlowRecord.Append(",\"nsgRuleName\":\"").Append(outerFlows.rule).Append("\"");
+
+                    var sbInnerFlowRecord = new StringBuilder();
+                    foreach (var innerFlows in outerFlows.flows)
+                    {
+                        sbInnerFlowRecord.Clear();
+                        sbInnerFlowRecord.Append(sbOuterFlowRecord.ToString());
+
+                        var firstFlowTupleEncountered = true;
+                        foreach (var flowTuple in innerFlows.flowTuples)
+                        {
+                            var tuple = new NSGFlowLogTuple(flowTuple);
+
+                            if (firstFlowTupleEncountered)
+                            {
+                                sbInnerFlowRecord.Append((tuple.GetDirection == "I" ? ",\"dmac\":\"" : ",\"smac\":\"")).Append(innerFlows.MakeMAC()).Append("\"");
+                                firstFlowTupleEncountered = false;
+                            }
+
+                            yield return sbInnerFlowRecord.Append(tuple.JsonSubString()).ToString() + "}";
+                        }
+
+                    }
+                }
+            }
+        }
+
+        static StringBuilder sb = new StringBuilder();
+        static string GetSplunkEventFromMessage(string message)
+        {
+            string json = Newtonsoft.Json.JsonConvert.SerializeObject(message);
+
+            sb.Clear();
+            sb.Append("{");
+            sb.Append("\"sourcetype\": \"").Append("nsgFlowLog").Append("\",");
+            sb.Append("\"event\": ").Append(json);
+            sb.Append("}");
+
+            return sb.ToString();
+
         }
 
         static Byte[] AppendToTransmission(Byte[] existingMessages, string appendMessage)
@@ -354,6 +562,13 @@ namespace NwNsgProject
                 }
                 return response;
             }
+
+            public static async Task<HttpResponseMessage> SendToSplunk(HttpRequestMessage req)
+            {
+                HttpResponseMessage response = await HttpClient.SendAsync(req);
+                return response;
+            }
+
         }
 
         static async Task obLogstash(string newClientContent, TraceWriter log)

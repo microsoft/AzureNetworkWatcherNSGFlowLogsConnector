@@ -97,6 +97,21 @@ class NSGFlowLogTuple
 
         return temp.ToString();
     }
+
+    public string JsonSubString()
+    {
+        var sb = new StringBuilder();
+        sb.Append(",\"rt\":\"").Append((Convert.ToUInt64(startTime) * 1000).ToString()).Append("\"");
+        sb.Append(",\"src\":\"").Append(sourceAddress).Append("\"");
+        sb.Append(",\"dst\":\"").Append(destinationAddress).Append("\"");
+        sb.Append(",\"spt\":\"").Append(sourcePort).Append("\"");
+        sb.Append(",\"dpt\":\"").Append(destinationPort).Append("\"");
+        sb.Append(",\"proto\":\"").Append((transportProtocol == "U" ? "UDP" : "TCP")).Append("\"");
+        sb.Append(",\"deviceDirection\":\"").Append((deviceDirection == "I" ? "0" : "1")).Append("\"");
+        sb.Append(",\"act\":\"").Append(deviceAction).Append("\"");
+
+        return sb.ToString();
+    }
 }
 
 class NSGFlowLogsInnerFlows
