@@ -95,6 +95,9 @@ namespace NwNsgProject
                 case "splunk":
                     await Util.obSplunk(myMessages, log);
                     break;
+                case "eventhub":
+                    await Util.obEventHub(myMessages, log);
+                    break;
             }
         }
 

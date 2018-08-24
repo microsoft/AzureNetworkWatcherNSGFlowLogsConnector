@@ -1,48 +1,45 @@
 ﻿using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.EventHubs;
 using Microsoft.Azure.WebJobs.Host;
-using Newtonsoft.Json;
 using System;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Security;
-using System.Security.Cryptography.X509Certificates;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace NwNsgProject
 {
     public partial class Util
     {
-        public static async Task obSplunk(string newClientContent, TraceWriter log)
+        const int MAXTRANSMISSIONSIZE = 255 * 1024;
+
+        public static async Task obEventHub(string newClientContent, TraceWriter log)
         {
-            //
-            // newClientContent looks like this:
-            //
-            // {
-            //   "records":[
-            //     {...},
-            //     {...}
-            //     ...
-            //   ]
-            // }
-            //
-
-            string splunkAddress = Util.GetEnvironmentVariable("splunkAddress");
-            string splunkToken = Util.GetEnvironmentVariable("splunkToken");
-
-            if (splunkAddress.Length == 0 || splunkToken.Length == 0)
+            string EventHubConnectionString = GetEnvironmentVariable("eventHubConnection");
+            string EventHubName = GetEnvironmentVariable("eventHubName");
+            if (EventHubConnectionString.Length == 0 || EventHubName.Length == 0)
             {
-                log.Error("Values for splunkAddress and splunkToken are required.");
+                log.Error("Values for eventHubConnection and eventHubName are required.");
                 return;
             }
 
-            ServicePointManager.Expect100Continue = true;
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-            ServicePointManager.ServerCertificateValidationCallback += new RemoteCertificateValidationCallback(ValidateMyCert);
+            var connectionStringBuilder = new EventHubsConnectionStringBuilder(EventHubConnectionString)
+            {
+                EntityPath = EventHubName
+            };
+            var eventHubClient = EventHubClient.CreateFromConnectionString(connectionStringBuilder.ToString());
 
-            var transmission = new StringBuilder();
-            foreach (var message in convertToSplunk(newClientContent, null, log))
+            foreach (var bundleOfMessages in bundleMessages(newClientContent, log))
+            {
+                await eventHubClient.SendAsync(new EventData(Encoding.UTF8.GetBytes(bundleOfMessages)));
+            }
+        }
+
+        static System.Collections.Generic.IEnumerable<string> bundleMessages(string newClientContent, TraceWriter log)
+        {
+            var transmission = new StringBuilder(MAXTRANSMISSIONSIZE);
+            foreach (var message in denormalizeRecords(newClientContent, null, log))
             {
                 //
                 // message looks like this:
@@ -65,35 +62,21 @@ namespace NwNsgProject
                 //   "deviceDirection": "xxx",
                 //   "act": "xxx"
                 //  }
-                transmission.Append(GetSplunkEventFromMessage(message));
-            }
 
-            var client = new SingleHttpClientInstance();
-            try
-            {
-                HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, splunkAddress);
-                req.Headers.Accept.Clear();
-                req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                req.Headers.Add("Authorization", "Splunk " + splunkToken);
-                req.Content = new StringContent(transmission.ToString(), Encoding.UTF8, "application/json");
-                HttpResponseMessage response = await SingleHttpClientInstance.SendToSplunk(req);
-                if (response.StatusCode != HttpStatusCode.OK)
+                if (transmission.Length + message.Length > MAXTRANSMISSIONSIZE)
                 {
-                    throw new System.Net.Http.HttpRequestException($"StatusCode from Splunk: {response.StatusCode}, and reason: {response.ReasonPhrase}");
+                    yield return transmission.ToString();
+                    transmission.Clear();
                 }
+                transmission.Append(message);
             }
-            catch (System.Net.Http.HttpRequestException e)
+            if (transmission.Length > 0)
             {
-                throw new System.Net.Http.HttpRequestException("Sending to Splunk. Is Splunk service running?", e);
+                yield return transmission.ToString();
             }
-            catch (Exception f)
-            {
-                throw new System.Exception("Sending to Splunk. Unplanned exception.", f);
-            }
-
         }
 
-        static System.Collections.Generic.IEnumerable<string> convertToSplunk(string newClientContent, Binder errorRecordBinder, TraceWriter log)
+        static System.Collections.Generic.IEnumerable<string> denormalizeRecords(string newClientContent, Binder errorRecordBinder, TraceWriter log)
         {
             //
             // newClientContent looks like this:
@@ -119,7 +102,7 @@ namespace NwNsgProject
                 }
             }
 
-            var sbBase = new StringBuilder();
+            var sbBase = new StringBuilder(500);
             foreach (var record in logs.records)
             {
                 float version = record.properties.Version;
@@ -161,43 +144,9 @@ namespace NwNsgProject
 
                             yield return sbInnerFlowRecord.ToString() + tuple.JsonSubString() + "}";
                         }
-
                     }
                 }
             }
         }
-
-        public static bool ValidateMyCert(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors sslErr)
-        {
-            var splunkCertThumbprint = Util.GetEnvironmentVariable("splunkCertThumbprint");
-
-            // if user has not configured a cert, anything goes
-            if (splunkCertThumbprint == "")
-                return true;
-
-            // if user has configured a cert, must match
-            var thumbprint = cert.GetCertHashString();
-            if (thumbprint == splunkCertThumbprint)
-                return true;
-
-            return false;
-        }
-
-        static StringBuilder sb = new StringBuilder();
-        static string GetSplunkEventFromMessage(string message)
-        {
-            string json = Newtonsoft.Json.JsonConvert.SerializeObject(message);
-
-            sb.Clear();
-            sb.Append("{");
-            sb.Append("\"sourcetype\": \"").Append("nsgFlowLog").Append("\",");
-            sb.Append("\"event\": ").Append(json);
-            sb.Append("}");
-
-            return sb.ToString();
-
-        }
-
-
     }
 }
