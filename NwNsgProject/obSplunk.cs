@@ -183,16 +183,14 @@ namespace NwNsgProject
             return false;
         }
 
-        static StringBuilder sb = new StringBuilder();
         static string GetSplunkEventFromMessage(string message)
         {
+            StringBuilder sb = new StringBuilder();
+
             string json = Newtonsoft.Json.JsonConvert.SerializeObject(message);
 
             sb.Clear();
-            sb.Append("{");
-            sb.Append("\"sourcetype\": \"").Append("nsgFlowLog").Append("\",");
-            sb.Append("\"event\": ").Append(json);
-            sb.Append("}");
+            sb.Append("{\"sourcetype\": \"nsgFlowLog\",\"event\": ").Append(json).Append("}");
 
             return sb.ToString();
 
