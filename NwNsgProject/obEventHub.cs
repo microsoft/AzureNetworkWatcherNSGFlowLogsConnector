@@ -39,6 +39,8 @@ namespace NwNsgProject
         static System.Collections.Generic.IEnumerable<string> bundleMessages(string newClientContent, TraceWriter log)
         {
             var transmission = new StringBuilder(MAXTRANSMISSIONSIZE);
+            transmission.Append("{\"records\":[");
+            bool firstRecord = true;
             foreach (var message in denormalizeRecords(newClientContent, null, log))
             {
                 //
@@ -65,13 +67,28 @@ namespace NwNsgProject
 
                 if (transmission.Length + message.Length > MAXTRANSMISSIONSIZE)
                 {
+                    transmission.Append("]}");
                     yield return transmission.ToString();
                     transmission.Clear();
+                    transmission.Append("{\"records\":[");
+                    firstRecord = true;
                 }
+
+                // add comma after existing transmission if it's not the first record
+                if (firstRecord)
+                {
+                    firstRecord = false;
+                }
+                else
+                {
+                    transmission.Append(",");
+                }
+
                 transmission.Append(message);
             }
             if (transmission.Length > 0)
             {
+                transmission.Append("]}");
                 yield return transmission.ToString();
             }
         }
