@@ -12,8 +12,8 @@ namespace NwNsgProject
 {
     public partial class Util
     {
-//        const int MAXTRANSMISSIONSIZE = 255 * 1024;
-        const int MAXTRANSMISSIONSIZE = 2 * 1024;
+        const int MAXTRANSMISSIONSIZE = 255 * 1024;
+//        const int MAXTRANSMISSIONSIZE = 2 * 1024;
 
         public static async Task obEventHub(string newClientContent, TraceWriter log)
         {
@@ -33,6 +33,8 @@ namespace NwNsgProject
 
             foreach (var bundleOfMessages in bundleMessages(newClientContent, log))
             {
+                //log.Info(String.Format("-----Outgoing message is: {0}", bundleOfMessages));
+
                 await eventHubClient.SendAsync(new EventData(Encoding.UTF8.GetBytes(bundleOfMessages)));
             }
         }
