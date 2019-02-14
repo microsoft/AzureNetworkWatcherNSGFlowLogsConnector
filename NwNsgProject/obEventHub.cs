@@ -12,7 +12,8 @@ namespace NwNsgProject
 {
     public partial class Util
     {
-        const int MAXTRANSMISSIONSIZE = 255 * 1024;
+//        const int MAXTRANSMISSIONSIZE = 255 * 1024;
+        const int MAXTRANSMISSIONSIZE = 2 * 1024;
 
         public static async Task obEventHub(string newClientContent, TraceWriter log)
         {
