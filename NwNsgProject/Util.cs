@@ -1,12 +1,12 @@
 ﻿using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage.Blob;
 using System;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NwNsgProject
+namespace nsgFunc
 {
     public partial class Util
     {
@@ -19,6 +19,65 @@ namespace NwNsgProject
             return result;
         }
 
+        public static async Task SendMessagesDownstreamAsync(string nsgMessagesString, ILogger log)
+        {
+            //
+            // nsgMessagesString looks like this:
+            //
+            // ,{...},  <-- note leading comma
+            // {...}
+            //  ...
+            // {...}
+            //
+            // - OR -
+            //  
+            // {...},   <-- note lack of leading comma
+            // {...}
+            //  ...
+            // {...}
+            //
+            string outputBinding = Util.GetEnvironmentVariable("outputBinding");
+            if (outputBinding.Length == 0)
+            {
+                log.LogError("Value for outputBinding is required. Permitted values are: 'logstash', 'arcsight', 'splunk', 'eventhub'.");
+                return;
+            }
+
+            // skip past the leading comma
+            string trimmedMessages = nsgMessagesString.Trim();
+            int curlyBrace = trimmedMessages.IndexOf('{');
+            string newClientContent = "{\"records\":[";
+            newClientContent += trimmedMessages.Substring(curlyBrace);
+            newClientContent += "]}";
+
+            //
+            // newClientContent looks like this:
+            // {
+            //   "records":[
+            //     {...},
+            //     {...}
+            //     ...
+            //   ]
+            // }
+            //
+
+            switch (outputBinding)
+            {
+                case "logstash":
+                    await Util.obLogstash(newClientContent, log);
+                    break;
+                case "arcsight":
+                    await Util.obArcsight(newClientContent, log);
+                    break;
+                case "splunk":
+                    await Util.obSplunk(newClientContent, log);
+                    break;
+                case "eventhub":
+                    await Util.obEventHub(newClientContent, log);
+                    break;
+            }
+        }
+
         public class SingleHttpClientInstance
         {
             private static readonly HttpClient HttpClient;
@@ -29,7 +88,7 @@ namespace NwNsgProject
                 HttpClient.Timeout = new TimeSpan(0, 1, 0);
             }
 
-            public static async Task<HttpResponseMessage> SendToLogstash(HttpRequestMessage req, TraceWriter log)
+            public static async Task<HttpResponseMessage> SendToLogstash(HttpRequestMessage req, ILogger log)
             {
                 HttpResponseMessage response = null;
                 var httpClient = new HttpClient();
@@ -40,17 +99,17 @@ namespace NwNsgProject
                 }
                 catch (AggregateException ex)
                 {
-                    log.Error("Got AggregateException.");
+                    log.LogError("Got AggregateException.");
                     throw ex;
                 }
                 catch (TaskCanceledException ex)
                 {
-                    log.Error("Got TaskCanceledException.");
+                    log.LogError("Got TaskCanceledException.");
                     throw ex;
                 }
                 catch (Exception ex)
                 {
-                    log.Error("Got other exception.");
+                    log.LogError("Got other exception.");
                     throw ex;
                 }
                 return response;
@@ -64,7 +123,7 @@ namespace NwNsgProject
 
         }
 
-        public static async Task logErrorRecord(string errorRecord, Binder errorRecordBinder, TraceWriter log)
+        public static async Task logErrorRecord(string errorRecord, Binder errorRecordBinder, ILogger log)
         {
             if (errorRecordBinder == null) { return; }
 
@@ -82,17 +141,17 @@ namespace NwNsgProject
                 };
 
                 CloudBlockBlob blob = await errorRecordBinder.BindAsync<CloudBlockBlob>(attributes);
-                blob.UploadFromByteArray(transmission, 0, transmission.Length);
+                await blob.UploadFromByteArrayAsync(transmission, 0, transmission.Length);
 
                 transmission = new Byte[] { };
             }
             catch (Exception ex)
             {
-                log.Error($"Exception logging record: {ex.Message}");
+                log.LogError($"Exception logging record: {ex.Message}");
             }
         }
 
-        static async Task logErrorRecord(NSGFlowLogRecord errorRecord, Binder errorRecordBinder, TraceWriter log)
+        static async Task logErrorRecord(NSGFlowLogRecord errorRecord, Binder errorRecordBinder, ILogger log)
         {
             if (errorRecordBinder == null) { return; }
 
@@ -110,13 +169,13 @@ namespace NwNsgProject
                 };
 
                 CloudBlockBlob blob = await errorRecordBinder.BindAsync<CloudBlockBlob>(attributes);
-                blob.UploadFromByteArray(transmission, 0, transmission.Length);
+                await blob.UploadFromByteArrayAsync(transmission, 0, transmission.Length);
 
                 transmission = new Byte[] { };
             }
             catch (Exception ex)
             {
-                log.Error($"Exception logging record: {ex.Message}");
+                log.LogError($"Exception logging record: {ex.Message}");
             }
         }
 
@@ -170,7 +229,6 @@ namespace NwNsgProject
         {
             return eqs(key, true) + eqs(value);
         }
-
 
     }
 }

@@ -1,27 +1,25 @@
-﻿using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.EventHubs;
-using Microsoft.Azure.WebJobs.Host;
+﻿using Microsoft.Azure.EventHubs;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 
-namespace NwNsgProject
+namespace nsgFunc
 {
     public partial class Util
     {
         const int MAXTRANSMISSIONSIZE = 255 * 1024;
 //        const int MAXTRANSMISSIONSIZE = 2 * 1024;
 
-        public static async Task obEventHub(string newClientContent, TraceWriter log)
+        public static async Task obEventHub(string newClientContent, ILogger log)
         {
             string EventHubConnectionString = GetEnvironmentVariable("eventHubConnection");
             string EventHubName = GetEnvironmentVariable("eventHubName");
             if (EventHubConnectionString.Length == 0 || EventHubName.Length == 0)
             {
-                log.Error("Values for eventHubConnection and eventHubName are required.");
+                log.LogError("Values for eventHubConnection and eventHubName are required.");
                 return;
             }
 
@@ -39,7 +37,7 @@ namespace NwNsgProject
             }
         }
 
-        static System.Collections.Generic.IEnumerable<string> bundleMessages(string newClientContent, TraceWriter log)
+        static System.Collections.Generic.IEnumerable<string> bundleMessages(string newClientContent, ILogger log)
         {
             var transmission = new StringBuilder(MAXTRANSMISSIONSIZE);
             transmission.Append("{\"records\":[");
@@ -96,7 +94,7 @@ namespace NwNsgProject
             }
         }
 
-        static System.Collections.Generic.IEnumerable<string> denormalizeRecords(string newClientContent, Binder errorRecordBinder, TraceWriter log)
+        static System.Collections.Generic.IEnumerable<string> denormalizeRecords(string newClientContent, Binder errorRecordBinder, ILogger log)
         {
             //
             // newClientContent looks like this:

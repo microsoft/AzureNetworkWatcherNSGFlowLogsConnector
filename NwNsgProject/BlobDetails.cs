@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Text;
 
-namespace NwNsgProject
+namespace nsgFunc
 {
     public class BlobDetails
     {
@@ -75,6 +77,11 @@ namespace NwNsgProject
         public string GetRowKey()
         {
             return string.Format("{0}_{1}_{2}_{3}_{4}", Year, Month, Day, Hour, Minute);
+        }
+
+        public override string ToString()
+        {
+            return string.Format("{0}_{1}_{2}_{3}", ResourceGroupName, NsgName, Day, Hour);
         }
     }
 }

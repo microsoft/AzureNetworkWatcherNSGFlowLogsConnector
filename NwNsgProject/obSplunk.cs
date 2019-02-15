@@ -1,5 +1,5 @@
 ﻿using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Net;
@@ -10,11 +10,11 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NwNsgProject
+namespace nsgFunc
 {
     public partial class Util
     {
-        public static async Task obSplunk(string newClientContent, TraceWriter log)
+        public static async Task obSplunk(string newClientContent, ILogger log)
         {
             //
             // newClientContent looks like this:
@@ -33,7 +33,7 @@ namespace NwNsgProject
 
             if (splunkAddress.Length == 0 || splunkToken.Length == 0)
             {
-                log.Error("Values for splunkAddress and splunkToken are required.");
+                log.LogError("Values for splunkAddress and splunkToken are required.");
                 return;
             }
 
@@ -93,7 +93,7 @@ namespace NwNsgProject
 
         }
 
-        static System.Collections.Generic.IEnumerable<string> convertToSplunk(string newClientContent, Binder errorRecordBinder, TraceWriter log)
+        static System.Collections.Generic.IEnumerable<string> convertToSplunk(string newClientContent, Binder errorRecordBinder, ILogger log)
         {
             //
             // newClientContent looks like this:

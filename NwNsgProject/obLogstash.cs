@@ -1,18 +1,16 @@
-﻿using Microsoft.Azure.WebJobs.Host;
+﻿using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NwNsgProject
+namespace nsgFunc
 {
     public partial class Util
     {
-        public static async Task obLogstash(string newClientContent, TraceWriter log)
+        public static async Task obLogstash(string newClientContent, ILogger log)
         {
             string logstashAddress = Util.GetEnvironmentVariable("logstashAddress");
             string logstashHttpUser = Util.GetEnvironmentVariable("logstashHttpUser");
@@ -20,7 +18,7 @@ namespace NwNsgProject
 
             if (logstashAddress.Length == 0 || logstashHttpUser.Length == 0 || logstashHttpPwd.Length == 0)
             {
-                log.Error("Values for logstashAddress, logstashHttpUser and logstashHttpPwd are required.");
+                log.LogError("Values for logstashAddress, logstashHttpUser and logstashHttpPwd are required.");
                 return;
             }
 
@@ -44,7 +42,7 @@ namespace NwNsgProject
                 HttpResponseMessage response = await Util.SingleHttpClientInstance.SendToLogstash(req, log);
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    log.Error($"StatusCode from Logstash: {response.StatusCode}, and reason: {response.ReasonPhrase}");
+                    log.LogError($"StatusCode from Logstash: {response.StatusCode}, and reason: {response.ReasonPhrase}");
                 }
             }
             catch (System.Net.Http.HttpRequestException e)
@@ -54,7 +52,7 @@ namespace NwNsgProject
                 {
                     msg += " *** " + e.InnerException.Message;
                 }
-                log.Error($"HttpRequestException Error: \"{msg}\" was caught while sending to Logstash.");
+                log.LogError($"HttpRequestException Error: \"{msg}\" was caught while sending to Logstash.");
                 throw e;
             }
             catch (Exception f)
@@ -64,7 +62,7 @@ namespace NwNsgProject
                 {
                     msg += " *** " + f.InnerException.Message;
                 }
-                log.Error($"Unknown error caught while sending to Logstash: \"{f.ToString()}\"");
+                log.LogError($"Unknown error caught while sending to Logstash: \"{f.ToString()}\"");
                 throw f;
             }
         }

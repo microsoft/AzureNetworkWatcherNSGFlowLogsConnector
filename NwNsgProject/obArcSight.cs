@@ -1,15 +1,15 @@
 ﻿using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
-namespace NwNsgProject
+namespace nsgFunc
 {
     public partial class Util
     {
-        public static async Task obArcsight(string newClientContent, TraceWriter log)
+        public static async Task obArcsight(string newClientContent, ILogger log)
         {
             //
             // newClientContent looks like this:
@@ -27,7 +27,7 @@ namespace NwNsgProject
 
             if (arcsightAddress.Length == 0 || arcsightPort.Length == 0)
             {
-                log.Error("Values for arcsightAddress and arcsightPort are required.");
+                log.LogError("Values for arcsightAddress and arcsightPort are required.");
                 return;
             }
 
@@ -53,7 +53,7 @@ namespace NwNsgProject
                 }
                 catch (Exception ex)
                 {
-                    log.Error($"Exception sending to ArcSight: {ex.Message}");
+                    log.LogError($"Exception sending to ArcSight: {ex.Message}");
                 }
             }
             if (count > 0)
@@ -64,13 +64,13 @@ namespace NwNsgProject
                 }
                 catch (Exception ex)
                 {
-                    log.Error($"Exception sending to ArcSight: {ex.Message}");
+                    log.LogError($"Exception sending to ArcSight: {ex.Message}");
                 }
             }
             await stream.FlushAsync();
         }
 
-        public static System.Collections.Generic.IEnumerable<string> convertToCEF(string newClientContent, Binder errorRecordBinder, TraceWriter log)
+        public static System.Collections.Generic.IEnumerable<string> convertToCEF(string newClientContent, Binder errorRecordBinder, ILogger log)
         {
             // newClientContent is a json string with records
 
