@@ -24,17 +24,17 @@ namespace nsgFunc
             //
             // nsgMessagesString looks like this:
             //
-            // ,{...},  <-- note leading comma
-            // {...}
+            // ,{...}  <-- note leading comma
+            // ,{...}
             //  ...
-            // {...}
+            // ,{...}
             //
             // - OR -
             //  
-            // {...},   <-- note lack of leading comma
-            // {...}
+            // {...}   <-- note lack of leading comma
+            // ,{...}
             //  ...
-            // {...}
+            // ,{...}
             //
             string outputBinding = Util.GetEnvironmentVariable("outputBinding");
             if (outputBinding.Length == 0)

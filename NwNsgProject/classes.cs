@@ -4,25 +4,94 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
+class ObjectDenormalizer
+{
+    public string time { get; set; }
+    public string category { get; set; }
+    public string operationName { get; set; }
+    public string resourceId { get; set; }
+    public float version { get; set; }
+    public string deviceExtId { get; set; }
+    public string nsgRuleName { get; set; }
+    public string mac { get; set; }
+    public string startTime { get; set; }
+    public string sourceAddress { get; set; }
+    public string destinationAddress { get; set; }
+    public string sourcePort { get; set; }
+    public string destinationPort { get; set; }
+    public string transportProtocol { get; set; }
+    public string deviceDirection { get; set; }
+    public string deviceAction { get; set; }
+    public string flowState { get; set; }
+    public string packetsStoD { get; set; }
+    public string bytesStoD { get; set; }
+    public string packetsDtoS { get; set; }
+    public string bytesDtoS { get; set; }
+
+    public ObjectDenormalizer(
+        float version,
+        string time,
+        string category,
+        string operationName,
+        string resourceId,
+        string nsgRuleName,
+        string mac,
+        NSGFlowLogTuple tuple
+        )
+    {
+        this.version = version;
+        this.time = time;
+        this.category = category;
+        this.operationName = operationName;
+        this.resourceId = resourceId;
+        this.nsgRuleName = nsgRuleName;
+        this.mac = mac;
+        this.startTime = tuple.startTime;
+        this.sourceAddress = tuple.sourceAddress;
+        this.destinationAddress = tuple.destinationAddress;
+        this.sourcePort = tuple.sourcePort;
+        this.destinationPort = tuple.destinationPort;
+        this.deviceDirection = tuple.deviceDirection;
+        this.deviceAction = tuple.deviceAction;
+        if (this.version >= 2.0)
+        {
+            this.flowState = tuple.flowState;
+            this.packetsDtoS = tuple.packetsDtoS;
+            this.packetsStoD = tuple.packetsStoD;
+            this.bytesDtoS = tuple.bytesDtoS;
+            this.bytesStoD = tuple.bytesStoD;
+        }
+    }
+
+    public override string ToString()
+    {
+        return JsonConvert.SerializeObject(this, new JsonSerializerSettings
+        {
+            NullValueHandling = NullValueHandling.Ignore
+        });
+    }
+
+}
+
 class NSGFlowLogTuple
 {
-    float schemaVersion;
+    public float schemaVersion { get; set; }
 
-    string startTime;
-    string sourceAddress;
-    string destinationAddress;
-    string sourcePort;
-    string destinationPort;
-    string transportProtocol;
-    string deviceDirection;
-    string deviceAction;
+    public string startTime { get; set; }
+    public string sourceAddress { get; set; }
+    public string destinationAddress { get; set; }
+    public string sourcePort { get; set; }
+    public string destinationPort { get; set; }
+    public string transportProtocol { get; set; }
+    public string deviceDirection { get; set; }
+    public string deviceAction { get; set; }
 
     // version 2 tuple properties
-    string flowState;
-    string packetsStoD;
-    string bytesStoD;
-    string packetsDtoS;
-    string bytesDtoS;
+    public string flowState { get; set; }
+    public string packetsStoD { get; set; }
+    public string bytesStoD { get; set; }
+    public string packetsDtoS { get; set; }
+    public string bytesDtoS { get; set; }
 
     public NSGFlowLogTuple(string tuple, float version)
     {

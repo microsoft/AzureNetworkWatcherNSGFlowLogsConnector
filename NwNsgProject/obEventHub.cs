@@ -120,47 +120,30 @@ namespace nsgFunc
                 }
             }
 
-            var sbBase = new StringBuilder(500);
             foreach (var record in logs.records)
             {
                 float version = record.properties.Version;
 
-                sbBase.Clear();
-                sbBase.Append("{");
-
-                sbBase.Append(eqs("time", true)).Append(eqs(record.time));
-                sbBase.Append(eqs(true, "category")).Append(eqs(record.category));
-                sbBase.Append(eqs(true, "operationName")).Append(eqs(record.operationName));
-                sbBase.Append(eqs(true, "version")).Append(eqs(version.ToString("0.0")));
-                sbBase.Append(eqs(true, "deviceExtId")).Append(eqs(record.MakeDeviceExternalID()));
-
-                int count = 1;
-                var sbOuterFlowRecord = new StringBuilder();
-                foreach (var outerFlows in record.properties.flows)
+                foreach (var outerFlow in record.properties.flows)
                 {
-                    sbOuterFlowRecord.Clear();
-                    sbOuterFlowRecord.Append(sbBase.ToString());
-                    sbOuterFlowRecord.Append(eqs(true, "flowOrder")).Append(eqs(count.ToString()));
-                    sbOuterFlowRecord.Append(eqs(true, "nsgRuleName")).Append(eqs(outerFlows.rule));
-
-                    var sbInnerFlowRecord = new StringBuilder();
-                    foreach (var innerFlows in outerFlows.flows)
+                    foreach (var innerFlow in outerFlow.flows)
                     {
-                        sbInnerFlowRecord.Clear();
-                        sbInnerFlowRecord.Append(sbOuterFlowRecord.ToString());
-
-                        var firstFlowTupleEncountered = true;
-                        foreach (var flowTuple in innerFlows.flowTuples)
+                        foreach (var flowTuple in innerFlow.flowTuples)
                         {
                             var tuple = new NSGFlowLogTuple(flowTuple, version);
 
-                            if (firstFlowTupleEncountered)
-                            {
-                                sbInnerFlowRecord.Append((tuple.GetDirection == "I" ? eqs(true, "dmac") : eqs(true, "smac"))).Append(eqs(innerFlows.MakeMAC()));
-                                firstFlowTupleEncountered = false;
-                            }
+                            var denormalizedObject = new ObjectDenormalizer(
+                                record.properties.Version,
+                                record.time,
+                                record.category,
+                                record.operationName,
+                                record.resourceId,
+                                outerFlow.rule,
+                                innerFlow.mac,
+                                tuple);
+                            string outgoingJson = denormalizedObject.ToString();
 
-                            yield return sbInnerFlowRecord.ToString() + tuple.JsonSubString() + "}";
+                            yield return outgoingJson;
                         }
                     }
                 }

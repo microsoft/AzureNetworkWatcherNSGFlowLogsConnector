@@ -65,7 +65,7 @@ namespace nsgFunc
             {
                 byte[] nsgMessages = new byte[dataLength];
                 CloudBlockBlob blob = nsgDataBlobBinder.BindAsync<CloudBlockBlob>(attributes).Result;
-                blob.DownloadRangeToByteArrayAsync(nsgMessages, 0, startingByte, dataLength).Wait();
+                await blob.DownloadRangeToByteArrayAsync(nsgMessages, 0, startingByte, dataLength);
                 nsgMessagesString = System.Text.Encoding.UTF8.GetString(nsgMessages);
             }
             catch (Exception ex)
@@ -74,7 +74,7 @@ namespace nsgFunc
                 throw ex;
             }
 
-            //log.LogDebug(nsgMessagesString);
+            log.LogDebug(nsgMessagesString);
 
             try
             {
