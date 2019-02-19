@@ -16,6 +16,7 @@ namespace nsgFunc
             [Table("checkpoints", Connection = "AzureWebJobsStorage")] CloudTable checkpointTable,
             Binder nsgDataBlobBinder,
             string subId, string resourceGroup, string nsgName, string blobYear, string blobMonth, string blobDay, string blobHour, string blobMinute, string mac,
+            ExecutionContext context,
             ILogger log)
         {
             string nsgSourceDataAccount = Util.GetEnvironmentVariable("nsgSourceDataAccount");
@@ -74,7 +75,8 @@ namespace nsgFunc
                 throw ex;
             }
 
-            log.LogDebug(nsgMessagesString);
+            //log.LogDebug(nsgMessagesString);
+            log.LogInformation($"Sending {nsgMessagesString.Length} bytes downstream, operation_id = {context}.");
 
             try
             {
