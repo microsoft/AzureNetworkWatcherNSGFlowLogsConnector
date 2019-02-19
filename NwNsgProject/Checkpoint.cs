@@ -5,9 +5,6 @@ namespace nsgFunc
 {
     public class Checkpoint : TableEntity
     {
-
-        public string LastBlockName { get; set; }
-        public long StartingByteOffset { get; set; }
         public int CheckpointIndex { get; set; }  // index of the last processed block list item
 
         public Checkpoint()
@@ -18,8 +15,6 @@ namespace nsgFunc
         {
             PartitionKey = partitionKey;
             RowKey = rowKey;
-            LastBlockName = blockName;
-            StartingByteOffset = offset;
             CheckpointIndex = index;
         }
 
@@ -42,10 +37,8 @@ namespace nsgFunc
             return checkpoint;
         }
 
-        public void PutCheckpoint(CloudTable checkpointTable, string lastBlockName, long startingByteOffset, int index)
+        public void PutCheckpoint(CloudTable checkpointTable, int index)
         {
-            LastBlockName = lastBlockName;
-            StartingByteOffset = startingByteOffset;
             CheckpointIndex = index;
 
             TableOperation operation = TableOperation.InsertOrReplace(this);

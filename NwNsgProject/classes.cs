@@ -3,8 +3,9 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
-class ObjectDenormalizer
+class DenormalizedRecord
 {
     public string time { get; set; }
     public string category { get; set; }
@@ -28,7 +29,7 @@ class ObjectDenormalizer
     public string packetsDtoS { get; set; }
     public string bytesDtoS { get; set; }
 
-    public ObjectDenormalizer(
+    public DenormalizedRecord(
         float version,
         string time,
         string category,
@@ -71,6 +72,39 @@ class ObjectDenormalizer
         });
     }
 
+    public int SizeOfObject()
+    {
+        int objectSize = 0;
+
+        objectSize += this.version.ToString().Length + 7 + 6;
+        objectSize += this.time.Length + 4 + 6;
+        objectSize += this.category.Length + 8 + 6;
+        objectSize += this.operationName.Length + 13 + 6;
+        objectSize += this.resourceId.Length + 10 + 6;
+        objectSize += this.nsgRuleName.Length + 11 + 6;
+        objectSize += this.mac.Length + 3 + 6;
+        objectSize += this.startTime.Length + 9 + 6;
+        objectSize += this.sourceAddress.Length + 13 + 6;
+        objectSize += this.destinationAddress.Length + 18 + 6;
+        objectSize += this.sourcePort.Length + 10 + 6;
+        objectSize += this.destinationPort.Length + 15 + 6;
+        objectSize += this.deviceDirection.Length + 15 + 6;
+        objectSize += this.deviceAction.Length + 12 + 6;
+        if (this.version >= 2.0)
+        {
+            objectSize += this.flowState.Length + 9 + 6;
+            objectSize += this.packetsDtoS == null ? 0 : this.packetsDtoS.Length + 11 + 6;
+            objectSize += this.packetsStoD == null ? 0 : this.packetsStoD.Length + 11 + 6;
+            objectSize += this.bytesDtoS == null ? 0 : this.bytesDtoS.Length + 9 + 6;
+            objectSize += this.bytesStoD == null ? 0 : this.bytesStoD.Length + 9 + 6;
+        }
+        return objectSize;
+    }
+}
+
+class OutgoingRecords
+{
+    public List<DenormalizedRecord> records { get; set; }
 }
 
 class NSGFlowLogTuple

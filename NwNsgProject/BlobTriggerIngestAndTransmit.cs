@@ -86,7 +86,7 @@ namespace nsgFunc
                 throw ex;
             }
 
-            checkpoint.PutCheckpoint(checkpointTable, "", 0, blockList.Count()-1);
+            checkpoint.PutCheckpoint(checkpointTable, blockList.Count()-1);
         }
     }
 }
