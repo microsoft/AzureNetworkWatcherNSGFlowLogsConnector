@@ -75,11 +75,12 @@ namespace nsgFunc
             }
 
             //log.LogDebug(nsgMessagesString);
-            log.LogInformation($"Sending {nsgMessagesString.Length} bytes downstream.");
+            
 
             try
             {
-                await Util.SendMessagesDownstreamAsync(nsgMessagesString, log);
+                int bytesSent = await Util.SendMessagesDownstreamAsync(nsgMessagesString, log);
+                log.LogInformation($"Sending {nsgMessagesString.Length} bytes (denormalized to {bytesSent} bytes) downstream.");
             }
             catch (Exception ex)
             {

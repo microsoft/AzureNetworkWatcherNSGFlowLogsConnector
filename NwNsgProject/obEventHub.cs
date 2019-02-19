@@ -29,14 +29,17 @@ namespace nsgFunc
             return eventHubClient;
         });
 
-        public static async Task obEventHub(string newClientContent, ILogger log)
+        public static async Task<int> obEventHub(string newClientContent, ILogger log)
         {
             var eventHubClient = LazyEventHubConnection.Value;
+            int bytesSent = 0;
 
             foreach (var bundleOfMessages in bundleMessageListsJson(newClientContent, log))
             {
                 await eventHubClient.SendAsync(new EventData(Encoding.UTF8.GetBytes(bundleOfMessages)));
+                bytesSent += bundleOfMessages.Length;
             }
+            return bytesSent;
         }
 
         static System.Collections.Generic.IEnumerable<string> bundleMessageListsJson(string newClientContent, ILogger log)
