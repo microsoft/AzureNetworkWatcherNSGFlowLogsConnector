@@ -71,7 +71,7 @@ namespace nsgFunc
                     await Util.obArcsight(newClientContent, log);
                     break;
                 case "splunk":
-                    await Util.obSplunk(newClientContent, log);
+                    bytesSent = await Util.obSplunk(newClientContent, log);
                     break;
                 case "eventhub":
                     bytesSent = await Util.obEventHub(newClientContent, log);

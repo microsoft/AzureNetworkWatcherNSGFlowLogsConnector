@@ -14,7 +14,7 @@ namespace nsgFunc
 {
     public partial class Util
     {
-        public static async Task obSplunk(string newClientContent, ILogger log)
+        public static async Task<int> obSplunk(string newClientContent, ILogger log)
         {
             //
             // newClientContent looks like this:
@@ -34,7 +34,7 @@ namespace nsgFunc
             if (splunkAddress.Length == 0 || splunkToken.Length == 0)
             {
                 log.LogError("Values for splunkAddress and splunkToken are required.");
-                return;
+                return 0;
             }
 
             ServicePointManager.Expect100Continue = true;
@@ -91,6 +91,7 @@ namespace nsgFunc
                 throw new System.Exception("Sending to Splunk. Unplanned exception.", f);
             }
 
+            return transmission.Length;
         }
 
         static System.Collections.Generic.IEnumerable<string> convertToSplunk(string newClientContent, Binder errorRecordBinder, ILogger log)
