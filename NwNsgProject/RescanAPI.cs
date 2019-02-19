@@ -18,7 +18,7 @@ namespace nsgFunc
         //
         [FunctionName("RescanAPI")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", Route = "rescan/resourceId=/SUBSCRIPTIONS/{subId}/RESOURCEGROUPS/{resourceGroup}/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/{nsgName}/y={blobYear}/m={blobMonth}/d={blobDay}/h={blobHour}/m={blobMinute}/macAddress={mac}/PT1H.json")]
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "rescan/resourceId=/SUBSCRIPTIONS/{subId}/RESOURCEGROUPS/{resourceGroup}/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/{nsgName}/y={blobYear}/m={blobMonth}/d={blobDay}/h={blobHour}/m={blobMinute}/macAddress={mac}/PT1H.json")]
 //            [Table("checkpoints", Connection = "AzureWebJobsStorage")] CloudTable checkpointToReset,
             HttpRequest req,
             Binder checkpointsBinder,
