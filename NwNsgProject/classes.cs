@@ -5,6 +5,28 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 
+class SplunkEventMessage
+{
+    public string sourcetype { get; set; }
+    public DenormalizedRecord @event { get; set; }
+
+    public SplunkEventMessage (DenormalizedRecord splunkEvent)
+    {
+        sourcetype = "amdl:nsg:flowlogs";
+        @event = splunkEvent;
+    }
+
+    public int GetSizeOfObject()
+    {
+        return sourcetype.Length + 10 + 6 + (@event == null ? 0 : @event.GetSizeOfObject());
+    }
+}
+
+class SplunkEventMessages
+{
+    public List<SplunkEventMessage> splunkEventMessages { get; set; }
+}
+
 class DenormalizedRecord
 {
     public string time { get; set; }
@@ -72,7 +94,7 @@ class DenormalizedRecord
         });
     }
 
-    public int SizeOfObject()
+    public int GetSizeOfObject()
     {
         int objectSize = 0;
 

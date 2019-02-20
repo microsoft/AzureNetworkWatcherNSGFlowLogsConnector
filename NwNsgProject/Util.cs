@@ -1,7 +1,9 @@
 ﻿using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage.Blob;
+using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,6 +12,8 @@ namespace nsgFunc
 {
     public partial class Util
     {
+        const int MAXTRANSMISSIONSIZE = 512 * 1024;
+
         public static string GetEnvironmentVariable(string name)
         {
             var result = System.Environment.GetEnvironmentVariable(name, System.EnvironmentVariableTarget.Process);
@@ -123,6 +127,114 @@ namespace nsgFunc
                 return response;
             }
 
+        }
+
+        static IEnumerable<List<DenormalizedRecord>> denormalizedRecords(string newClientContent, Binder errorRecordBinder, ILogger log)
+        {
+            var outgoingList = new List<DenormalizedRecord>(450);
+            var sizeOfListItems = 0;
+
+            NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
+
+            foreach (var record in logs.records)
+            {
+                float version = record.properties.Version;
+
+                foreach (var outerFlow in record.properties.flows)
+                {
+                    foreach (var innerFlow in outerFlow.flows)
+                    {
+                        foreach (var flowTuple in innerFlow.flowTuples)
+                        {
+                            var tuple = new NSGFlowLogTuple(flowTuple, version);
+
+                            var denormalizedRecord = new DenormalizedRecord(
+                                record.properties.Version,
+                                record.time,
+                                record.category,
+                                record.operationName,
+                                record.resourceId,
+                                outerFlow.rule,
+                                innerFlow.mac,
+                                tuple);
+
+                            var sizeOfDenormalizedRecord = denormalizedRecord.GetSizeOfObject();
+
+                            if (sizeOfListItems + sizeOfDenormalizedRecord > MAXTRANSMISSIONSIZE + 20)
+                            {
+                                yield return outgoingList;
+                                outgoingList.Clear();
+                                sizeOfListItems = 0;
+                            }
+                            outgoingList.Add(denormalizedRecord);
+                            sizeOfListItems += sizeOfDenormalizedRecord;
+                        }
+                    }
+                }
+            }
+            if (sizeOfListItems > 0)
+            {
+                yield return outgoingList;
+            }
+        }
+
+        /// <summary>
+        /// input newClientContent is a string representation of a json array of records, each of which is a nsg flow log hierarchy
+        /// output is a List of SplunkEventMessage, up to a max # of bytes or 450 elements
+        /// </summary>
+        /// <param name="newClientContent"></param>
+        /// <param name="errorRecordBinder"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
+        static IEnumerable<List<SplunkEventMessage>> denormalizedSplunkEvents(string newClientContent, Binder errorRecordBinder, ILogger log)
+        {
+            var outgoingSplunkList = new List<SplunkEventMessage>(450);
+            var sizeOfListItems = 0;
+
+            NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
+
+            foreach (var record in logs.records)
+            {
+                float version = record.properties.Version;
+
+                foreach (var outerFlow in record.properties.flows)
+                {
+                    foreach (var innerFlow in outerFlow.flows)
+                    {
+                        foreach (var flowTuple in innerFlow.flowTuples)
+                        {
+                            var tuple = new NSGFlowLogTuple(flowTuple, version);
+
+                            var denormalizedRecord = new DenormalizedRecord(
+                                record.properties.Version,
+                                record.time,
+                                record.category,
+                                record.operationName,
+                                record.resourceId,
+                                outerFlow.rule,
+                                innerFlow.mac,
+                                tuple);
+
+                            var splunkEventMessage = new SplunkEventMessage(denormalizedRecord);
+                            var sizeOfObject = splunkEventMessage.GetSizeOfObject();
+    
+                            if (sizeOfListItems + sizeOfObject > MAXTRANSMISSIONSIZE + 20 || outgoingSplunkList.Count == 450)
+                            {
+                                yield return outgoingSplunkList;
+                                outgoingSplunkList.Clear();
+                                sizeOfListItems = 0;
+                            }
+                            outgoingSplunkList.Add(splunkEventMessage);
+
+                            sizeOfListItems += sizeOfObject;
+                        }
+                    }
+                }
+            }
+            if (sizeOfListItems > 0)
+            {
+                yield return outgoingSplunkList;
+            }
         }
 
         public static async Task logErrorRecord(string errorRecord, Binder errorRecordBinder, ILogger log)

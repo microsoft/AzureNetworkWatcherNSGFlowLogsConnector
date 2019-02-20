@@ -12,9 +12,6 @@ namespace nsgFunc
 {
     public partial class Util
     {
-        const int MAXTRANSMISSIONSIZE = 512 * 1024;
-        //const int MAXTRANSMISSIONSIZE = 2 * 1024;
-
         private static Lazy<EventHubClient> LazyEventHubConnection = new Lazy<EventHubClient>(() =>
         {
             string EventHubConnectionString = GetEnvironmentVariable("eventHubConnection");
@@ -77,55 +74,6 @@ namespace nsgFunc
                 });
 
                 yield return outgoingJson;
-            }
-        }
-
-        static IEnumerable<List<DenormalizedRecord>> denormalizedRecords(string newClientContent, Binder errorRecordBinder, ILogger log)
-        {
-            var outgoingList = new List<DenormalizedRecord>(450);
-            var sizeOfListItems = 0;
-
-            NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
-
-            foreach (var record in logs.records)
-            {
-                float version = record.properties.Version;
-
-                foreach (var outerFlow in record.properties.flows)
-                {
-                    foreach (var innerFlow in outerFlow.flows)
-                    {
-                        foreach (var flowTuple in innerFlow.flowTuples)
-                        {
-                            var tuple = new NSGFlowLogTuple(flowTuple, version);
-
-                            var denormalizedRecord = new DenormalizedRecord(
-                                record.properties.Version,
-                                record.time,
-                                record.category,
-                                record.operationName,
-                                record.resourceId,
-                                outerFlow.rule,
-                                innerFlow.mac,
-                                tuple);
-
-                            var sizeOfDenormalizedRecord = denormalizedRecord.SizeOfObject();
-
-                            if (sizeOfListItems + sizeOfDenormalizedRecord > MAXTRANSMISSIONSIZE + 20)
-                            {
-                                yield return outgoingList;
-                                outgoingList.Clear();
-                                sizeOfListItems = 0;
-                            }
-                            outgoingList.Add(denormalizedRecord);
-                            sizeOfListItems += sizeOfDenormalizedRecord;
-                        }
-                    }
-                }
-            }
-            if (sizeOfListItems > 0)
-            {
-                yield return outgoingList;
             }
         }
     }
