@@ -36,7 +36,7 @@ namespace nsgFunc
             if (outputBinding.Length == 0)
             {
                 log.LogError("Value for outputBinding is required. Permitted values are: 'logstash', 'arcsight', 'splunk', 'eventhub'.");
-                return 0;
+                throw new System.ArgumentNullException("outputBinding", "Please provide setting.");
             }
 
             var blobDetails = new BlobDetails(subId, resourceGroup, nsgName, blobYear, blobMonth, blobDay, blobHour, blobMinute, mac);
