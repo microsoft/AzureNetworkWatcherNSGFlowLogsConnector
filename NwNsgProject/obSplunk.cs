@@ -9,6 +9,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.Formatting;
 
 namespace nsgFunc
 {
@@ -76,17 +77,27 @@ namespace nsgFunc
         {
             foreach (var messageList in denormalizedSplunkEvents(newClientContent, null, log))
             {
-                StringBuilder outgoingJson = new StringBuilder(MAXTRANSMISSIONSIZE);
-                foreach (var message in messageList)
+
+                StringBuilder outgoingJson = StringBuilderPool.Allocate();
+                outgoingJson.Capacity = MAXTRANSMISSIONSIZE;
+
+                try
                 {
-                    var messageAsString = JsonConvert.SerializeObject(message, new JsonSerializerSettings
+                    foreach (var message in messageList)
                     {
-                        NullValueHandling = NullValueHandling.Ignore
-                    });
-                    outgoingJson.Append(messageAsString);
+                        var messageAsString = JsonConvert.SerializeObject(message, new JsonSerializerSettings
+                        {
+                            NullValueHandling = NullValueHandling.Ignore
+                        });
+                        outgoingJson.Append(messageAsString);
+                    }
+                    yield return outgoingJson.ToString();
+                }
+                finally
+                {
+                    StringBuilderPool.Free(outgoingJson);
                 }
 
-                yield return outgoingJson.ToString();
             }
         }
 

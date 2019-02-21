@@ -5,6 +5,7 @@ using Microsoft.WindowsAzure.Storage.Table;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace nsgFunc
 {
@@ -71,8 +72,10 @@ namespace nsgFunc
             try
             {
                 byte[] nsgMessages = new byte[dataLength];
+
                 CloudBlockBlob blob = nsgDataBlobBinder.BindAsync<CloudBlockBlob>(attributes).Result;
                 await blob.DownloadRangeToByteArrayAsync(nsgMessages, 0, startingByte, dataLength);
+
                 nsgMessagesString = System.Text.Encoding.UTF8.GetString(nsgMessages);
             }
             catch (Exception ex)

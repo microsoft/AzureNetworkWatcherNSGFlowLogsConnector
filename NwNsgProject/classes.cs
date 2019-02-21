@@ -5,6 +5,15 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 
+class ByteArray
+{
+    public byte[] b;
+    public ByteArray ()
+    {
+        b = new byte[1024 * 1024];
+    }
+}
+
 class SplunkEventMessage
 {
     public string sourcetype { get; set; }
