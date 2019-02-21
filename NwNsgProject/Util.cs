@@ -144,50 +144,58 @@ namespace nsgFunc
 
         static IEnumerable<List<DenormalizedRecord>> denormalizedRecords(string newClientContent, Binder errorRecordBinder, ILogger log)
         {
-            var outgoingList = new List<DenormalizedRecord>(450);
+            var outgoingList = ListPool<DenormalizedRecord>.Allocate();
+            outgoingList.Capacity = 450;
             var sizeOfListItems = 0;
 
-            NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
-
-            foreach (var record in logs.records)
+            try
             {
-                float version = record.properties.Version;
+                NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
 
-                foreach (var outerFlow in record.properties.flows)
+                foreach (var record in logs.records)
                 {
-                    foreach (var innerFlow in outerFlow.flows)
+                    float version = record.properties.Version;
+
+                    foreach (var outerFlow in record.properties.flows)
                     {
-                        foreach (var flowTuple in innerFlow.flowTuples)
+                        foreach (var innerFlow in outerFlow.flows)
                         {
-                            var tuple = new NSGFlowLogTuple(flowTuple, version);
-
-                            var denormalizedRecord = new DenormalizedRecord(
-                                record.properties.Version,
-                                record.time,
-                                record.category,
-                                record.operationName,
-                                record.resourceId,
-                                outerFlow.rule,
-                                innerFlow.mac,
-                                tuple);
-
-                            var sizeOfDenormalizedRecord = denormalizedRecord.GetSizeOfObject();
-
-                            if (sizeOfListItems + sizeOfDenormalizedRecord > MAXTRANSMISSIONSIZE + 20)
+                            foreach (var flowTuple in innerFlow.flowTuples)
                             {
-                                yield return outgoingList;
-                                outgoingList.Clear();
-                                sizeOfListItems = 0;
+                                var tuple = new NSGFlowLogTuple(flowTuple, version);
+
+                                var denormalizedRecord = new DenormalizedRecord(
+                                    record.properties.Version,
+                                    record.time,
+                                    record.category,
+                                    record.operationName,
+                                    record.resourceId,
+                                    outerFlow.rule,
+                                    innerFlow.mac,
+                                    tuple);
+
+                                var sizeOfDenormalizedRecord = denormalizedRecord.GetSizeOfObject();
+
+                                if (sizeOfListItems + sizeOfDenormalizedRecord > MAXTRANSMISSIONSIZE + 20)
+                                {
+                                    yield return outgoingList;
+                                    outgoingList.Clear();
+                                    sizeOfListItems = 0;
+                                }
+                                outgoingList.Add(denormalizedRecord);
+                                sizeOfListItems += sizeOfDenormalizedRecord;
                             }
-                            outgoingList.Add(denormalizedRecord);
-                            sizeOfListItems += sizeOfDenormalizedRecord;
                         }
                     }
                 }
+                if (sizeOfListItems > 0)
+                {
+                    yield return outgoingList;
+                }
             }
-            if (sizeOfListItems > 0)
+            finally
             {
-                yield return outgoingList;
+                ListPool<DenormalizedRecord>.Free(outgoingList);
             }
         }
 
