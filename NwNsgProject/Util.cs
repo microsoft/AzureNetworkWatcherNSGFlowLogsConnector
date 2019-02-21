@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.Formatting;
 
 namespace nsgFunc
 {
@@ -48,11 +49,23 @@ namespace nsgFunc
             }
 
             // skip past the leading comma
-            string trimmedMessages = nsgMessagesString.Trim();
-            int curlyBrace = trimmedMessages.IndexOf('{');
-            string newClientContent = "{\"records\":[";
-            newClientContent += trimmedMessages.Substring(curlyBrace);
-            newClientContent += "]}";
+            //string trimmedMessages = nsgMessagesString.Trim();
+            //int curlyBrace = trimmedMessages.IndexOf('{');
+            //string newClientContent = "{\"records\":[";
+            //newClientContent += trimmedMessages.Substring(curlyBrace);
+            //newClientContent += "]}";
+
+            StringBuilder sb = StringBuilderPool.Allocate();
+            string newClientContent = "";
+            try
+            {
+                sb.Append("{\"records\":[").Append(nsgMessagesString).Append("]}");
+                newClientContent = sb.ToString();
+            } 
+            finally
+            {
+                StringBuilderPool.Free(sb);
+            }
 
             //
             // newClientContent looks like this:

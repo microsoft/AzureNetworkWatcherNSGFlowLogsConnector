@@ -68,7 +68,7 @@ namespace nsgFunc
                 {
                     throw new System.Exception("Sending to Splunk. Unplanned exception.", f);
                 }
-                    bytesSent += transmission.Length;
+                bytesSent += transmission.Length;
             }
             return bytesSent;
         }
