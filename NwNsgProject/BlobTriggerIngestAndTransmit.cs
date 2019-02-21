@@ -5,7 +5,7 @@ using Microsoft.WindowsAzure.Storage.Table;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Text;
+using System.Buffers;
 
 namespace nsgFunc
 {
@@ -69,10 +69,10 @@ namespace nsgFunc
             };
 
             string nsgMessagesString = "";
+            var bytePool = ArrayPool<byte>.Shared;
+            byte[] nsgMessages = bytePool.Rent((int)dataLength);
             try
-            {
-                byte[] nsgMessages = new byte[dataLength];
-                
+            {                
                 CloudBlockBlob blob = nsgDataBlobBinder.BindAsync<CloudBlockBlob>(attributes).Result;
                 await blob.DownloadRangeToByteArrayAsync(nsgMessages, 0, startingByte, dataLength);
 
@@ -88,6 +88,10 @@ namespace nsgFunc
             {
                 log.LogError(string.Format("Error binding blob input: {0}", ex.Message));
                 throw ex;
+            }
+            finally
+            {
+                bytePool.Return(nsgMessages);
             }
 
             //log.LogDebug(nsgMessagesString);
