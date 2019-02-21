@@ -201,53 +201,62 @@ namespace nsgFunc
         /// <returns></returns>
         static IEnumerable<List<SplunkEventMessage>> denormalizedSplunkEvents(string newClientContent, Binder errorRecordBinder, ILogger log)
         {
-            var outgoingSplunkList = new List<SplunkEventMessage>(450);
+            var outgoingSplunkList = ListPool<SplunkEventMessage>.Allocate();
+            outgoingSplunkList.Capacity = 450;
             var sizeOfListItems = 0;
 
-            NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
-
-            foreach (var record in logs.records)
+            try
             {
-                float version = record.properties.Version;
+                NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
 
-                foreach (var outerFlow in record.properties.flows)
+                foreach (var record in logs.records)
                 {
-                    foreach (var innerFlow in outerFlow.flows)
+                    float version = record.properties.Version;
+
+                    foreach (var outerFlow in record.properties.flows)
                     {
-                        foreach (var flowTuple in innerFlow.flowTuples)
+                        foreach (var innerFlow in outerFlow.flows)
                         {
-                            var tuple = new NSGFlowLogTuple(flowTuple, version);
-
-                            var denormalizedRecord = new DenormalizedRecord(
-                                record.properties.Version,
-                                record.time,
-                                record.category,
-                                record.operationName,
-                                record.resourceId,
-                                outerFlow.rule,
-                                innerFlow.mac,
-                                tuple);
-
-                            var splunkEventMessage = new SplunkEventMessage(denormalizedRecord);
-                            var sizeOfObject = splunkEventMessage.GetSizeOfObject();
-    
-                            if (sizeOfListItems + sizeOfObject > MAXTRANSMISSIONSIZE + 20 || outgoingSplunkList.Count == 450)
+                            foreach (var flowTuple in innerFlow.flowTuples)
                             {
-                                yield return outgoingSplunkList;
-                                outgoingSplunkList.Clear();
-                                sizeOfListItems = 0;
-                            }
-                            outgoingSplunkList.Add(splunkEventMessage);
+                                var tuple = new NSGFlowLogTuple(flowTuple, version);
 
-                            sizeOfListItems += sizeOfObject;
+                                var denormalizedRecord = new DenormalizedRecord(
+                                    record.properties.Version,
+                                    record.time,
+                                    record.category,
+                                    record.operationName,
+                                    record.resourceId,
+                                    outerFlow.rule,
+                                    innerFlow.mac,
+                                    tuple);
+
+                                var splunkEventMessage = new SplunkEventMessage(denormalizedRecord);
+                                var sizeOfObject = splunkEventMessage.GetSizeOfObject();
+
+                                if (sizeOfListItems + sizeOfObject > MAXTRANSMISSIONSIZE + 20 || outgoingSplunkList.Count == 450)
+                                {
+                                    yield return outgoingSplunkList;
+                                    outgoingSplunkList.Clear();
+                                    sizeOfListItems = 0;
+                                }
+                                outgoingSplunkList.Add(splunkEventMessage);
+
+                                sizeOfListItems += sizeOfObject;
+                            }
                         }
                     }
                 }
+                if (sizeOfListItems > 0)
+                {
+                    yield return outgoingSplunkList;
+                }
             }
-            if (sizeOfListItems > 0)
+            finally
             {
-                yield return outgoingSplunkList;
+                ListPool<SplunkEventMessage>.Free(outgoingSplunkList);
             }
+
         }
 
         public static async Task logErrorRecord(string errorRecord, Binder errorRecordBinder, ILogger log)
