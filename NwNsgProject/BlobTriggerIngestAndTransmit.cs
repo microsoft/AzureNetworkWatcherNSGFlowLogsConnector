@@ -17,8 +17,11 @@ namespace nsgFunc
             [Table("checkpoints", Connection = "AzureWebJobsStorage")] CloudTable checkpointTable,
             Binder nsgDataBlobBinder,
             string subId, string resourceGroup, string nsgName, string blobYear, string blobMonth, string blobDay, string blobHour, string blobMinute, string mac,
+            ExecutionContext executionContext,
             ILogger log)
         {
+            log.LogInformation($"BlobTriggerIngestAndTransmit triggered: {executionContext.InvocationId} ");
+
             string nsgSourceDataAccount = Util.GetEnvironmentVariable("nsgSourceDataAccount");
             if (nsgSourceDataAccount.Length == 0)
             {
@@ -81,7 +84,7 @@ namespace nsgFunc
                     nsgMessagesString = System.Text.Encoding.UTF8.GetString(nsgMessages, 1, (int)(dataLength - 1));
                 } else
                 {
-                    nsgMessagesString = System.Text.Encoding.UTF8.GetString(nsgMessages);
+                    nsgMessagesString = System.Text.Encoding.UTF8.GetString(nsgMessages, 0, (int)dataLength);
                 }
             }
             catch (Exception ex)
@@ -99,7 +102,7 @@ namespace nsgFunc
 
             try
             {
-                int bytesSent = await Util.SendMessagesDownstreamAsync(nsgMessagesString, log);
+                int bytesSent = await Util.SendMessagesDownstreamAsync(nsgMessagesString, executionContext, log);
                 log.LogInformation($"Sending {nsgMessagesString.Length} bytes (denormalized to {bytesSent} bytes) downstream via output binding {outputBinding}.");
             }
             catch (Exception ex)

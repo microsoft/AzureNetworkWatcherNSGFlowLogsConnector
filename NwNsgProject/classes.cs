@@ -4,15 +4,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using System.Collections.Generic;
-
-class ByteArray
-{
-    public byte[] b;
-    public ByteArray ()
-    {
-        b = new byte[1024 * 1024];
-    }
-}
+using System.Buffers;
+using Microsoft.CodeAnalysis.Formatting;
 
 class SplunkEventMessage
 {
@@ -27,7 +20,7 @@ class SplunkEventMessage
 
     public int GetSizeOfObject()
     {
-        return sourcetype.Length + 10 + 6 + (@event == null ? 0 : @event.GetSizeOfObject());
+        return sourcetype.Length + 10 + 6 + (@event == null ? 0 : @event.GetSizeOfJSONObject());
     }
 }
 
@@ -95,15 +88,152 @@ class DenormalizedRecord
         }
     }
 
-    public override string ToString()
+    private string MakeMAC()
     {
-        return JsonConvert.SerializeObject(this, new JsonSerializerSettings
+        StringBuilder sb = StringBuilderPool.Allocate();
+        string delimitedMac = "";
+        try
         {
-            NullValueHandling = NullValueHandling.Ignore
-        });
+            sb.Append(mac.Substring(0, 2)).Append(":");
+            sb.Append(mac.Substring(2, 2)).Append(":");
+            sb.Append(mac.Substring(4, 2)).Append(":");
+            sb.Append(mac.Substring(6, 2)).Append(":");
+            sb.Append(mac.Substring(8, 2)).Append(":");
+            sb.Append(mac.Substring(10, 2));
+
+            delimitedMac = sb.ToString();
+        }
+        finally
+        {
+            StringBuilderPool.Free(sb);
+        }
+
+
+        return delimitedMac;
     }
 
-    public int GetSizeOfObject()
+    private string MakeDeviceExternalID()
+    {
+        var patternSubscriptionId = "SUBSCRIPTIONS\\/(.*?)\\/";
+        var patternResourceGroup = "SUBSCRIPTIONS\\/(?:.*?)\\/RESOURCEGROUPS\\/(.*?)\\/";
+        var patternResourceName = "PROVIDERS\\/(?:.*?\\/.*?\\/)(.*?)(?:\\/|$)";
+
+        Match m = Regex.Match(resourceId, patternSubscriptionId);
+        var subscriptionID = m.Groups[1].Value;
+
+        m = Regex.Match(resourceId, patternResourceGroup);
+        var resourceGroup = m.Groups[1].Value;
+
+        m = Regex.Match(resourceId, patternResourceName);
+        var resourceName = m.Groups[1].Value;
+
+        return subscriptionID + "/" + resourceGroup + "/" + resourceName;
+    }
+
+    private string MakeCEFTime()
+    {
+        // sample input: "2017-08-09T00:13:25.4850000Z"
+        // sample output: Aug 09 00:13:25 host CEF:0
+
+        CultureInfo culture = new CultureInfo("en-US");
+        DateTime tempDate = Convert.ToDateTime(time, culture);
+        string newTime = tempDate.ToString("MMM dd HH:mm:ss");
+
+        return newTime + " host CEF:0";
+    }
+
+
+    private void BuildCEF(ref StringBuilder sb)
+    {
+        sb.Append(MakeCEFTime());
+        sb.Append("|Microsoft.Network");
+        sb.Append("|NETWORKSECURITYGROUPS");
+        sb.Append("|").Append(version.ToString("0.0"));
+        sb.Append("|").Append(category);
+        sb.Append("|").Append(operationName);
+        sb.Append("|1");  // severity is always 1
+        sb.Append("|deviceExternalId=").Append(MakeDeviceExternalID());
+
+        sb.Append(String.Format(" cs1={0}", nsgRuleName));
+        sb.Append(String.Format(" cs1Label=NSGRuleName"));
+
+        sb.Append((deviceDirection == "I" ? " dmac=" : " smac=") + MakeMAC());
+
+        sb.Append(" rt=").Append((Convert.ToUInt64(startTime) * 1000).ToString());
+        sb.Append(" src=").Append(sourceAddress);
+        sb.Append(" dst=").Append(destinationAddress);
+        sb.Append(" spt=").Append(sourcePort);
+        sb.Append(" dpt=").Append(destinationPort);
+        sb.Append(" proto=").Append((transportProtocol == "U" ? "UDP" : "TCP"));
+        sb.Append(" deviceDirection=").Append((deviceDirection == "I" ? "0" : "1"));
+        sb.Append(" act=").Append(deviceAction);
+
+        if (version >= 2.0)
+        {
+            // add fields from version 2 schema
+            sb.Append(" cs2=").Append(flowState);
+            sb.Append(" cs2Label=FlowState");
+
+            if (flowState != "B")
+            {
+                sb.Append(" cn1=").Append(packetsStoD);
+                sb.Append(" cn1Label=PacketsStoD");
+                sb.Append(" cn2=").Append(packetsDtoS);
+                sb.Append(" cn2Label=PacketsDtoS");
+
+                if (deviceDirection == "I")
+                {
+                    sb.Append(" bytesIn=").Append(bytesStoD);
+                    sb.Append(" bytesOut=").Append(bytesDtoS);
+                }
+                else
+                {
+                    sb.Append(" bytesIn=").Append(bytesDtoS);
+                    sb.Append(" bytesOut=").Append(bytesStoD);
+                }
+            }
+        }
+    }
+
+    public int AppendToTransmission(ref byte[] transmission, int maxSize, int offset)
+    {
+        StringBuilder sb = StringBuilderPool.Allocate();
+        var bytePool = ArrayPool<byte>.Shared;
+        byte[] buffer = bytePool.Rent((int)1000);
+        byte[] crlf = new Byte[] { 0x0D, 0x0A };
+        int bytesToAppend = 0;
+
+        try
+        {
+            BuildCEF(ref sb);
+
+            string s = sb.ToString();
+            bytesToAppend += s.Length + 2;
+
+            if (maxSize > offset + bytesToAppend)
+            {
+                Buffer.BlockCopy(Encoding.ASCII.GetBytes(s), 0, buffer, 0, s.Length);
+                Buffer.BlockCopy(crlf, 0, buffer, s.Length, 2);
+
+                Buffer.BlockCopy(buffer, 0, transmission, offset, bytesToAppend);
+            } else
+            {
+                throw new System.IO.InternalBufferOverflowException("ArcSight transmission buffer overflow");
+            }
+
+        }
+        finally
+        {
+            StringBuilderPool.Free(sb);
+            bytePool.Return(buffer);
+        }
+
+        return bytesToAppend;
+
+
+    }
+
+    public int GetSizeOfJSONObject()
     {
         int objectSize = 0;
 
@@ -178,10 +308,10 @@ class NSGFlowLogTuple
             flowState = parts[8];
             if (flowState != "B")
             {
-                packetsStoD = parts[9];
-                bytesStoD = parts[10];
-                packetsDtoS = parts[11];
-                bytesDtoS = parts[12];
+                packetsStoD = (parts[9] == "" ? "0" : parts[9]);
+                bytesStoD = (parts[10] == "" ? "0" : parts[10]);
+                packetsDtoS = (parts[11] == "" ? "0" : parts[11]);
+                bytesDtoS = (parts[12] == "" ? "0" : parts[12]);
             }
         }
     }
@@ -218,13 +348,13 @@ class NSGFlowLogTuple
 
                 if (deviceDirection == "I")
                 {
-                    temp.Append(" bytesIn={0}").Append(bytesStoD);
-                    temp.Append(" bytesOut={0}").Append(bytesDtoS);
+                    temp.Append(" bytesIn=").Append(bytesStoD);
+                    temp.Append(" bytesOut=").Append(bytesDtoS);
                 }
                 else
                 {
-                    temp.Append(" bytesIn={0}").Append(bytesDtoS);
-                    temp.Append(" bytesOut={0}").Append(bytesStoD);
+                    temp.Append(" bytesIn=").Append(bytesDtoS);
+                    temp.Append(" bytesOut=").Append(bytesStoD);
                 }
             }
         }

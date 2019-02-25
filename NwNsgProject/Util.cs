@@ -24,7 +24,7 @@ namespace nsgFunc
             return result;
         }
 
-        public static async Task<int> SendMessagesDownstreamAsync(string nsgMessagesString, ILogger log)
+        public static async Task<int> SendMessagesDownstreamAsync(string nsgMessagesString, ExecutionContext executionContext, ILogger log)
         {
             //
             // nsgMessagesString looks like this:
@@ -85,7 +85,7 @@ namespace nsgFunc
                     await Util.obLogstash(newClientContent, log);
                     break;
                 case "arcsight":
-                    await Util.obArcsight(newClientContent, log);
+                    bytesSent = await Util.obArcsightNew(newClientContent, executionContext, log);
                     break;
                 case "splunk":
                     bytesSent = await Util.obSplunk(newClientContent, log);
@@ -174,7 +174,7 @@ namespace nsgFunc
                                     innerFlow.mac,
                                     tuple);
 
-                                var sizeOfDenormalizedRecord = denormalizedRecord.GetSizeOfObject();
+                                var sizeOfDenormalizedRecord = denormalizedRecord.GetSizeOfJSONObject();
 
                                 if (sizeOfListItems + sizeOfDenormalizedRecord > MAXTRANSMISSIONSIZE + 20)
                                 {

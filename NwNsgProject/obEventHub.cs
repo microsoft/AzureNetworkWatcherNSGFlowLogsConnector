@@ -43,28 +43,6 @@ namespace nsgFunc
         {
             foreach (var messageList in denormalizedRecords(newClientContent, null, log))
             {
-                //
-                // messageList looks like this: (List<xxx>)
-                //
-                // {
-                //   "time": "xxx",
-                //   "category": "xxx",
-                //   "operationName": "xxx",
-                //   "version": "xxx",
-                //   "deviceExtId": "xxx",
-                //   "flowOrder": "xxx",
-                //   "nsgRuleName": "xxx",
-                //   "dmac|smac": "xxx",
-                //   "rt": "xxx",
-                //   "src": "xxx",
-                //   "dst": "xxx",
-                //   "spt": "xxx",
-                //   "dpt": "xxx",
-                //   "proto": "xxx",
-                //   "deviceDirection": "xxx",
-                //   "act": "xxx"
-                //  }
-
                 var outgoingRecords = new OutgoingRecords();
                 outgoingRecords.records = messageList;
 
