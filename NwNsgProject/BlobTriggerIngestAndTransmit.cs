@@ -20,7 +20,7 @@ namespace nsgFunc
             ExecutionContext executionContext,
             ILogger log)
         {
-            log.LogInformation($"BlobTriggerIngestAndTransmit triggered: {executionContext.InvocationId} ");
+            log.LogDebug($"BlobTriggerIngestAndTransmit triggered: {executionContext.InvocationId} ");
 
             string nsgSourceDataAccount = Util.GetEnvironmentVariable("nsgSourceDataAccount");
             if (nsgSourceDataAccount.Length == 0)
@@ -53,7 +53,7 @@ namespace nsgFunc
             var endingByte = blockList.Where((item, index) => index < blockList.Count()-1).Sum(item => item.Length);
             var dataLength = endingByte - startingByte;
 
-            log.LogInformation("Blob: {0}, starting byte: {1}, ending byte: {2}, number of bytes: {3}", blobDetails.ToString(), startingByte, endingByte, dataLength);
+            log.LogDebug("Blob: {0}, starting byte: {1}, ending byte: {2}, number of bytes: {3}", blobDetails.ToString(), startingByte, endingByte, dataLength);
 
             if (dataLength == 0)
             {
@@ -103,7 +103,7 @@ namespace nsgFunc
             try
             {
                 int bytesSent = await Util.SendMessagesDownstreamAsync(nsgMessagesString, executionContext, log);
-                log.LogInformation($"Sending {nsgMessagesString.Length} bytes (denormalized to {bytesSent} bytes) downstream via output binding {outputBinding}.");
+                log.LogDebug($"Sending {nsgMessagesString.Length} bytes (denormalized to {bytesSent} bytes) downstream via output binding {outputBinding}.");
             }
             catch (Exception ex)
             {

@@ -50,7 +50,7 @@ namespace nsgFunc
                     if (count++ == 1000)
                     {
                         sw.Stop();
-                        log.LogInformation($"Time to build new transmission byte[] from convertToCEF: {sw.ElapsedMilliseconds}");
+                        log.LogDebug($"Time to build new transmission byte[] from convertToCEF: {sw.ElapsedMilliseconds}");
 
                         sw.Reset();
                         sw.Start();
@@ -59,7 +59,7 @@ namespace nsgFunc
                         bytesSent += transmission.Length;
 
                         sw.Stop();
-                        log.LogInformation($"Time to transmit to ArcSight server: {sw.ElapsedMilliseconds}");
+                        log.LogDebug($"Time to transmit to ArcSight server: {sw.ElapsedMilliseconds}");
 
                         sw.Reset();
                         sw.Start();
@@ -81,7 +81,7 @@ namespace nsgFunc
                     bytesSent += transmission.Length;
 
                     sw.Stop();
-                    log.LogInformation($"Time to transmit to ArcSight server: {sw.ElapsedMilliseconds}");
+                    log.LogDebug($"Time to transmit to ArcSight server: {sw.ElapsedMilliseconds}");
 
                 }
                 catch (Exception ex)
@@ -131,7 +131,7 @@ namespace nsgFunc
 
                     transmittedByteCount += tuple.Item2;
 
-                    log.LogInformation($"Transmitted {tuple.Item2} bytes, in time {sw.ElapsedMilliseconds}, operation id {executionContext.InvocationId}.");
+                    log.LogDebug($"Transmitted {tuple.Item2} bytes, in time {sw.ElapsedMilliseconds}, operation id {executionContext.InvocationId}.");
                     sw.Reset();
 
                 }
@@ -158,7 +158,7 @@ namespace nsgFunc
                 foreach (var messageList in denormalizedRecords(newClientContent, null, log))
                 {
                     sw.Stop();
-                    log.LogInformation($"Time to get new messageList from denormalizedRecords: {sw.ElapsedMilliseconds}");
+                    log.LogDebug($"Time to get new messageList from denormalizedRecords: {sw.ElapsedMilliseconds}");
 
                     sw.Reset();
                     sw.Start();
@@ -169,7 +169,7 @@ namespace nsgFunc
                         transmissionLength += bytesAppended;
                     }
                     sw.Stop();
-                    log.LogInformation($"Time to build transmission from messageList: {sw.ElapsedMilliseconds}");
+                    log.LogDebug($"Time to build transmission from messageList: {sw.ElapsedMilliseconds}");
                     yield return Tuple.Create(transmission, transmissionLength);
 
                     sw.Reset();
