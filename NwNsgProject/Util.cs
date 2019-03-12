@@ -24,7 +24,7 @@ namespace nsgFunc
             return result;
         }
 
-        public static async Task<int> SendMessagesDownstreamAsync(string nsgMessagesString, ExecutionContext executionContext, Binder errorRecordBinder, ILogger log)
+        public static async Task<int> SendMessagesDownstreamAsync(string nsgMessagesString, ExecutionContext executionContext, Binder cefLogBinder, ILogger log)
         {
             //
             // nsgMessagesString looks like this:
@@ -44,7 +44,7 @@ namespace nsgFunc
             string outputBinding = Util.GetEnvironmentVariable("outputBinding");
             if (outputBinding.Length == 0)
             {
-                log.LogError("Value for outputBinding is required. Permitted values are: 'logstash', 'arcsight', 'splunk', 'eventhub'.");
+                log.LogError("Value for outputBinding is required. Permitted values are: 'arcsight', 'splunk', 'eventhub'.");
                 return 0;
             }
 
@@ -84,18 +84,18 @@ namespace nsgFunc
             {
                 if (flag)
                 {
-                    Util.logErrorRecord(newClientContent, errorRecordBinder, log).Wait();
+                    Util.logIncomingRecord(newClientContent, cefLogBinder, log).Wait();
                 }
             }
 
             int bytesSent = 0;
             switch (outputBinding)
             {
-                case "logstash":
-                    await Util.obLogstash(newClientContent, log);
-                    break;
+                //case "logstash":
+                //    await Util.obLogstash(newClientContent, log);
+                //    break;
                 case "arcsight":
-                    bytesSent = await Util.obArcsightNew(newClientContent, executionContext, log);
+                    bytesSent = await Util.obArcsightNew(newClientContent, executionContext, cefLogBinder, log);
                     break;
                 case "splunk":
                     bytesSent = await Util.obSplunk(newClientContent, log);
@@ -277,24 +277,24 @@ namespace nsgFunc
 
         }
 
-        public static async Task logErrorRecord(string errorRecord, Binder errorRecordBinder, ILogger log)
+        public static async Task logIncomingRecord(string record, Binder binder, ILogger log)
         {
-            if (errorRecordBinder == null) { return; }
+            if (binder == null) { return; }
 
             Byte[] transmission = new Byte[] { };
 
             try
             {
-                transmission = AppendToTransmission(transmission, errorRecord);
+                transmission = AppendToTransmission(transmission, record);
 
                 Guid guid = Guid.NewGuid();
                 var attributes = new Attribute[]
                 {
-                    new BlobAttribute(String.Format("errorrecord/{0}", guid)),
+                    new BlobAttribute(String.Format("incomingrecord/{0}", guid)),
                     new StorageAccountAttribute("cefLogAccount")
                 };
 
-                CloudBlockBlob blob = await errorRecordBinder.BindAsync<CloudBlockBlob>(attributes);
+                CloudBlockBlob blob = await binder.BindAsync<CloudBlockBlob>(attributes);
                 await blob.UploadFromByteArrayAsync(transmission, 0, transmission.Length);
 
                 transmission = new Byte[] { };

@@ -16,7 +16,7 @@ namespace nsgFunc
             [BlobTrigger("%blobContainerName%/resourceId=/SUBSCRIPTIONS/{subId}/RESOURCEGROUPS/{resourceGroup}/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/{nsgName}/y={blobYear}/m={blobMonth}/d={blobDay}/h={blobHour}/m={blobMinute}/macAddress={mac}/PT1H.json", Connection = "%nsgSourceDataAccount%")]CloudBlockBlob myBlob,
             [Table("checkpoints", Connection = "AzureWebJobsStorage")] CloudTable checkpointTable,
             Binder nsgDataBlobBinder,
-            Binder errorRecordBinder,
+            Binder cefLogBinder,
             string subId, string resourceGroup, string nsgName, string blobYear, string blobMonth, string blobDay, string blobHour, string blobMinute, string mac,
             ExecutionContext executionContext,
             ILogger log)
@@ -40,7 +40,7 @@ namespace nsgFunc
             string outputBinding = Util.GetEnvironmentVariable("outputBinding");
             if (outputBinding.Length == 0)
             {
-                log.LogError("Value for outputBinding is required. Permitted values are: 'logstash', 'arcsight', 'splunk', 'eventhub'.");
+                log.LogError("Value for outputBinding is required. Permitted values are: 'arcsight', 'splunk', 'eventhub'.");
                 throw new System.ArgumentNullException("outputBinding", "Please provide setting.");
             }
 
@@ -103,7 +103,7 @@ namespace nsgFunc
 
             try
             {
-                int bytesSent = await Util.SendMessagesDownstreamAsync(nsgMessagesString, executionContext, errorRecordBinder, log);
+                int bytesSent = await Util.SendMessagesDownstreamAsync(nsgMessagesString, executionContext, cefLogBinder, log);
                 log.LogDebug($"Sending {nsgMessagesString.Length} bytes (denormalized to {bytesSent} bytes) downstream via output binding {outputBinding}.");
             }
             catch (Exception ex)
