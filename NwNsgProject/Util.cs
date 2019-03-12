@@ -24,7 +24,7 @@ namespace nsgFunc
             return result;
         }
 
-        public static async Task<int> SendMessagesDownstreamAsync(string nsgMessagesString, ExecutionContext executionContext, ILogger log)
+        public static async Task<int> SendMessagesDownstreamAsync(string nsgMessagesString, ExecutionContext executionContext, Binder errorRecordBinder, ILogger log)
         {
             //
             // nsgMessagesString looks like this:
@@ -77,6 +77,16 @@ namespace nsgFunc
             //   ]
             // }
             //
+
+            string logIncomingJSON = Util.GetEnvironmentVariable("logIncomingJSON");
+            Boolean flag;
+            if (Boolean.TryParse(logIncomingJSON, out flag))
+            {
+                if (flag)
+                {
+                    Util.logErrorRecord(newClientContent, errorRecordBinder, log).Wait();
+                }
+            }
 
             int bytesSent = 0;
             switch (outputBinding)

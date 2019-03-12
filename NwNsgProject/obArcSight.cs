@@ -189,16 +189,6 @@ namespace nsgFunc
 
             NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
 
-            string logIncomingJSON = Util.GetEnvironmentVariable("logIncomingJSON");
-            Boolean flag;
-            if (Boolean.TryParse(logIncomingJSON, out flag))
-            {
-                if (flag)
-                {
-                    Util.logErrorRecord(newClientContent, errorRecordBinder, log).Wait();
-                }
-            }
-
             string cefRecordBase = "";
             foreach (var record in logs.records)
             {
