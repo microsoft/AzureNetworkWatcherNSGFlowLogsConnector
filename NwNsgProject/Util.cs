@@ -1,15 +1,20 @@
 ﻿using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage.Blob;
+using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.Formatting;
 
-namespace NwNsgProject
+namespace nsgFunc
 {
     public partial class Util
     {
+        const int MAXTRANSMISSIONSIZE = 512 * 1024;
+
         public static string GetEnvironmentVariable(string name)
         {
             var result = System.Environment.GetEnvironmentVariable(name, System.EnvironmentVariableTarget.Process);
@@ -17,6 +22,89 @@ namespace NwNsgProject
                 return "";
 
             return result;
+        }
+
+        public static async Task<int> SendMessagesDownstreamAsync(string nsgMessagesString, ExecutionContext executionContext, Binder cefLogBinder, ILogger log)
+        {
+            //
+            // nsgMessagesString looks like this:
+            //
+            // ,{...}  <-- note leading comma
+            // ,{...}
+            //  ...
+            // ,{...}
+            //
+            // - OR -
+            //  
+            // {...}   <-- note lack of leading comma
+            // ,{...}
+            //  ...
+            // ,{...}
+            //
+            string outputBinding = Util.GetEnvironmentVariable("outputBinding");
+            if (outputBinding.Length == 0)
+            {
+                log.LogError("Value for outputBinding is required. Permitted values are: 'arcsight', 'splunk', 'eventhub'.");
+                return 0;
+            }
+
+            // skip past the leading comma
+            //string trimmedMessages = nsgMessagesString.Trim();
+            //int curlyBrace = trimmedMessages.IndexOf('{');
+            //string newClientContent = "{\"records\":[";
+            //newClientContent += trimmedMessages.Substring(curlyBrace);
+            //newClientContent += "]}";
+
+            StringBuilder sb = StringBuilderPool.Allocate();
+            string newClientContent = "";
+            try
+            {
+                sb.Append("{\"records\":[").Append(nsgMessagesString).Append("]}");
+                newClientContent = sb.ToString();
+            } 
+            finally
+            {
+                StringBuilderPool.Free(sb);
+            }
+
+            //
+            // newClientContent looks like this:
+            // {
+            //   "records":[
+            //     {...},
+            //     {...}
+            //     ...
+            //   ]
+            // }
+            //
+
+            string logIncomingJSON = Util.GetEnvironmentVariable("logIncomingJSON");
+            Boolean flag;
+            if (Boolean.TryParse(logIncomingJSON, out flag))
+            {
+                if (flag)
+                {
+                    Util.logIncomingRecord(newClientContent, cefLogBinder, log).Wait();
+                }
+            }
+
+            int bytesSent = 0;
+            switch (outputBinding)
+            {
+                //case "logstash":
+                //    await Util.obLogstash(newClientContent, log);
+                //    break;
+                case "arcsight":
+                    bytesSent = await Util.obArcsightNew(newClientContent, executionContext, cefLogBinder, log);
+                    break;
+                case "splunk":
+                    bytesSent = await Util.obSplunk(newClientContent, log);
+                    break;
+                case "eventhub":
+                    bytesSent = await Util.obEventHub(newClientContent, log);
+                    break;
+            }
+            return bytesSent;
         }
 
         public class SingleHttpClientInstance
@@ -29,7 +117,7 @@ namespace NwNsgProject
                 HttpClient.Timeout = new TimeSpan(0, 1, 0);
             }
 
-            public static async Task<HttpResponseMessage> SendToLogstash(HttpRequestMessage req, TraceWriter log)
+            public static async Task<HttpResponseMessage> SendToLogstash(HttpRequestMessage req, ILogger log)
             {
                 HttpResponseMessage response = null;
                 var httpClient = new HttpClient();
@@ -40,17 +128,17 @@ namespace NwNsgProject
                 }
                 catch (AggregateException ex)
                 {
-                    log.Error("Got AggregateException.");
+                    log.LogError("Got AggregateException.");
                     throw ex;
                 }
                 catch (TaskCanceledException ex)
                 {
-                    log.Error("Got TaskCanceledException.");
+                    log.LogError("Got TaskCanceledException.");
                     throw ex;
                 }
                 catch (Exception ex)
                 {
-                    log.Error("Got other exception.");
+                    log.LogError("Got other exception.");
                     throw ex;
                 }
                 return response;
@@ -64,35 +152,160 @@ namespace NwNsgProject
 
         }
 
-        public static async Task logErrorRecord(string errorRecord, Binder errorRecordBinder, TraceWriter log)
+        static IEnumerable<List<DenormalizedRecord>> denormalizedRecords(string newClientContent, Binder errorRecordBinder, ILogger log)
         {
-            if (errorRecordBinder == null) { return; }
+            var outgoingList = ListPool<DenormalizedRecord>.Allocate();
+            outgoingList.Capacity = 450;
+            var sizeOfListItems = 0;
+
+            try
+            {
+                NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
+
+                foreach (var record in logs.records)
+                {
+                    float version = record.properties.Version;
+
+                    foreach (var outerFlow in record.properties.flows)
+                    {
+                        foreach (var innerFlow in outerFlow.flows)
+                        {
+                            foreach (var flowTuple in innerFlow.flowTuples)
+                            {
+                                var tuple = new NSGFlowLogTuple(flowTuple, version);
+
+                                var denormalizedRecord = new DenormalizedRecord(
+                                    record.properties.Version,
+                                    record.time,
+                                    record.category,
+                                    record.operationName,
+                                    record.resourceId,
+                                    outerFlow.rule,
+                                    innerFlow.mac,
+                                    tuple);
+
+                                var sizeOfDenormalizedRecord = denormalizedRecord.GetSizeOfJSONObject();
+
+                                if (sizeOfListItems + sizeOfDenormalizedRecord > MAXTRANSMISSIONSIZE + 20)
+                                {
+                                    yield return outgoingList;
+                                    outgoingList.Clear();
+                                    sizeOfListItems = 0;
+                                }
+                                outgoingList.Add(denormalizedRecord);
+                                sizeOfListItems += sizeOfDenormalizedRecord;
+                            }
+                        }
+                    }
+                }
+                if (sizeOfListItems > 0)
+                {
+                    yield return outgoingList;
+                }
+            }
+            finally
+            {
+                ListPool<DenormalizedRecord>.Free(outgoingList);
+            }
+        }
+
+        /// <summary>
+        /// input newClientContent is a string representation of a json array of records, each of which is a nsg flow log hierarchy
+        /// output is a List of SplunkEventMessage, up to a max # of bytes or 450 elements
+        /// </summary>
+        /// <param name="newClientContent"></param>
+        /// <param name="errorRecordBinder"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
+        static IEnumerable<List<SplunkEventMessage>> denormalizedSplunkEvents(string newClientContent, Binder errorRecordBinder, ILogger log)
+        {
+            var outgoingSplunkList = ListPool<SplunkEventMessage>.Allocate();
+            outgoingSplunkList.Capacity = 450;
+            var sizeOfListItems = 0;
+
+            try
+            {
+                NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
+
+                foreach (var record in logs.records)
+                {
+                    float version = record.properties.Version;
+
+                    foreach (var outerFlow in record.properties.flows)
+                    {
+                        foreach (var innerFlow in outerFlow.flows)
+                        {
+                            foreach (var flowTuple in innerFlow.flowTuples)
+                            {
+                                var tuple = new NSGFlowLogTuple(flowTuple, version);
+
+                                var denormalizedRecord = new DenormalizedRecord(
+                                    record.properties.Version,
+                                    record.time,
+                                    record.category,
+                                    record.operationName,
+                                    record.resourceId,
+                                    outerFlow.rule,
+                                    innerFlow.mac,
+                                    tuple);
+
+                                var splunkEventMessage = new SplunkEventMessage(denormalizedRecord);
+                                var sizeOfObject = splunkEventMessage.GetSizeOfObject();
+
+                                if (sizeOfListItems + sizeOfObject > MAXTRANSMISSIONSIZE + 20 || outgoingSplunkList.Count == 450)
+                                {
+                                    yield return outgoingSplunkList;
+                                    outgoingSplunkList.Clear();
+                                    sizeOfListItems = 0;
+                                }
+                                outgoingSplunkList.Add(splunkEventMessage);
+
+                                sizeOfListItems += sizeOfObject;
+                            }
+                        }
+                    }
+                }
+                if (sizeOfListItems > 0)
+                {
+                    yield return outgoingSplunkList;
+                }
+            }
+            finally
+            {
+                ListPool<SplunkEventMessage>.Free(outgoingSplunkList);
+            }
+
+        }
+
+        public static async Task logIncomingRecord(string record, Binder binder, ILogger log)
+        {
+            if (binder == null) { return; }
 
             Byte[] transmission = new Byte[] { };
 
             try
             {
-                transmission = AppendToTransmission(transmission, errorRecord);
+                transmission = AppendToTransmission(transmission, record);
 
                 Guid guid = Guid.NewGuid();
                 var attributes = new Attribute[]
                 {
-                    new BlobAttribute(String.Format("errorrecord/{0}", guid)),
+                    new BlobAttribute(String.Format("incomingrecord/{0}", guid)),
                     new StorageAccountAttribute("cefLogAccount")
                 };
 
-                CloudBlockBlob blob = await errorRecordBinder.BindAsync<CloudBlockBlob>(attributes);
-                blob.UploadFromByteArray(transmission, 0, transmission.Length);
+                CloudBlockBlob blob = await binder.BindAsync<CloudBlockBlob>(attributes);
+                await blob.UploadFromByteArrayAsync(transmission, 0, transmission.Length);
 
                 transmission = new Byte[] { };
             }
             catch (Exception ex)
             {
-                log.Error($"Exception logging record: {ex.Message}");
+                log.LogError($"Exception logging record: {ex.Message}");
             }
         }
 
-        static async Task logErrorRecord(NSGFlowLogRecord errorRecord, Binder errorRecordBinder, TraceWriter log)
+        static async Task logErrorRecord(NSGFlowLogRecord errorRecord, Binder errorRecordBinder, ILogger log)
         {
             if (errorRecordBinder == null) { return; }
 
@@ -110,13 +323,13 @@ namespace NwNsgProject
                 };
 
                 CloudBlockBlob blob = await errorRecordBinder.BindAsync<CloudBlockBlob>(attributes);
-                blob.UploadFromByteArray(transmission, 0, transmission.Length);
+                await blob.UploadFromByteArrayAsync(transmission, 0, transmission.Length);
 
                 transmission = new Byte[] { };
             }
             catch (Exception ex)
             {
-                log.Error($"Exception logging record: {ex.Message}");
+                log.LogError($"Exception logging record: {ex.Message}");
             }
         }
 
@@ -170,7 +383,6 @@ namespace NwNsgProject
         {
             return eqs(key, true) + eqs(value);
         }
-
 
     }
 }
