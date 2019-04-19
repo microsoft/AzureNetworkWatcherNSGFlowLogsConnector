@@ -43,6 +43,7 @@ namespace nsgFunc
             ServicePointManager.ServerCertificateValidationCallback += new RemoteCertificateValidationCallback(ValidateMyCert);
 
             int bytesSent = 0;
+            Guid channelIdentifier = Guid.NewGuid();
 
             foreach (var transmission in convertToSplunkList(newClientContent, log))
             {
@@ -53,6 +54,7 @@ namespace nsgFunc
                     req.Headers.Accept.Clear();
                     req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                     req.Headers.Add("Authorization", "Splunk " + splunkToken);
+                    req.Headers.Add("X-Splunk-Request-Channel", channelIdentifier.ToString());
                     req.Content = new StringContent(transmission, Encoding.UTF8, "application/json");
                     HttpResponseMessage response = await SingleHttpClientInstance.SendToSplunk(req);
                     if (response.StatusCode != HttpStatusCode.OK)
