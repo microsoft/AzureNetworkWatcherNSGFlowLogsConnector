@@ -22,7 +22,7 @@ class SplunkEventMessage
 
     double unixTime(string time)
     {
-        DateTime t = DateTime.ParseExact(time,"yyyy-MM-ddThh:mm:ss.fffffffZ", System.Globalization.CultureInfo.InvariantCulture);
+        DateTime t = DateTime.ParseExact(time,"yyyy-MM-ddTHH:mm:ss.fffffffZ", System.Globalization.CultureInfo.InvariantCulture);
 
         double unixTimestamp = t.Ticks - new DateTime(1970, 1, 1).Ticks;
         unixTimestamp /= TimeSpan.TicksPerSecond;
