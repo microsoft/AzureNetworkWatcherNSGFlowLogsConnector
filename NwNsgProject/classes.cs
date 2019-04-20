@@ -10,7 +10,7 @@ using Microsoft.CodeAnalysis.Formatting;
 class SplunkEventMessage
 {
     public string sourcetype { get; set; }
-    public long time { get; set; }
+    public double time { get; set; }
     public DenormalizedRecord @event { get; set; }
 
     public SplunkEventMessage (DenormalizedRecord splunkEvent)
@@ -20,11 +20,11 @@ class SplunkEventMessage
         @event = splunkEvent;
     }
 
-    long unixTime(string time)
+    double unixTime(string time)
     {
         DateTime t = DateTime.ParseExact(time,"yyyy-MM-ddThh:mm:ss.fffffffZ", System.Globalization.CultureInfo.InvariantCulture);
 
-        long unixTimestamp = t.Ticks - new DateTime(1970, 1, 1).Ticks;
+        double unixTimestamp = t.Ticks - new DateTime(1970, 1, 1).Ticks;
         unixTimestamp /= TimeSpan.TicksPerSecond;
         return unixTimestamp;
     }
