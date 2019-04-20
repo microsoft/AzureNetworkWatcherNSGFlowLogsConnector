@@ -10,12 +10,23 @@ using Microsoft.CodeAnalysis.Formatting;
 class SplunkEventMessage
 {
     public string sourcetype { get; set; }
+    public long time { get; set; }
     public DenormalizedRecord @event { get; set; }
 
     public SplunkEventMessage (DenormalizedRecord splunkEvent)
     {
         sourcetype = "amdl:nsg:flowlogs";
+        time = unixTime(splunkEvent.time);
         @event = splunkEvent;
+    }
+
+    long unixTime(string time)
+    {
+        DateTime t = DateTime.ParseExact(time,"yyyyMMddThh:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+
+        long unixTimestamp = t.Ticks - new DateTime(1970, 1, 1).Ticks;
+        unixTimestamp /= TimeSpan.TicksPerSecond;
+        return unixTimestamp;
     }
 
     public int GetSizeOfObject()
