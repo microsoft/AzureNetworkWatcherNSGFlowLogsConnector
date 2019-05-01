@@ -45,16 +45,36 @@ namespace nsgFunc
             }
 
             var blobDetails = new BlobDetails(subId, resourceGroup, nsgName, blobYear, blobMonth, blobDay, blobHour, blobMinute, mac);
+            Checkpoint checkpoint = new Checkpoint();
+            try
+            {
+                checkpoint = Checkpoint.GetCheckpoint(blobDetails, checkpointTable);
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"Error {ex} creating new checkpoint.");
+                throw ex;
+            }
 
-            // get checkpoint
-            Checkpoint checkpoint = Checkpoint.GetCheckpoint(blobDetails, checkpointTable);
+            long startingByte = 0;
+            long endingByte = 0;
+            long dataLength = 0;
+            int blockListLength = 0;
+            try
+            {
+                var blockList = myBlob.DownloadBlockListAsync().Result;
+                blockListLength = blockList.Count();
+                startingByte = blockList.Where((item, index) => index < checkpoint.CheckpointIndex).Sum(item => item.Length);
+                endingByte = blockList.Where((item, index) => index < blockList.Count() - 1).Sum(item => item.Length);
+                dataLength = endingByte - startingByte;
 
-            var blockList = myBlob.DownloadBlockListAsync().Result;
-            var startingByte = blockList.Where((item, index) => index<checkpoint.CheckpointIndex).Sum(item => item.Length);
-            var endingByte = blockList.Where((item, index) => index < blockList.Count()-1).Sum(item => item.Length);
-            var dataLength = endingByte - startingByte;
-
-            log.LogDebug("Blob: {0}, starting byte: {1}, ending byte: {2}, number of bytes: {3}", blobDetails.ToString(), startingByte, endingByte, dataLength);
+                log.LogDebug("Blob: {0}, starting byte: {1}, ending byte: {2}, number of bytes: {3}", blobDetails.ToString(), startingByte, endingByte, dataLength);
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"Error {ex} getting block list and its measures.");
+                throw ex;
+            }
 
             if (dataLength == 0)
             {
@@ -112,7 +132,7 @@ namespace nsgFunc
                 throw ex;
             }
 
-            checkpoint.PutCheckpoint(checkpointTable, blockList.Count()-1);
+            checkpoint.PutCheckpoint(checkpointTable, blockListLength - 1);
         }
     }
 }
