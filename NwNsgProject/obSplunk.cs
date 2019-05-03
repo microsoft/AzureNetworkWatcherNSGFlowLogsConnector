@@ -62,6 +62,7 @@ namespace nsgFunc
                 }
                 catch (System.Net.Http.HttpRequestException e)
                 {
+                    log.LogError($"HttpRequestException: {e.Message}, inner exception message: {e.InnerException.Message}");
                     throw new System.Net.Http.HttpRequestException("Sending to Splunk. Is Splunk service running?", e);
                 }
                 catch (Exception f)
