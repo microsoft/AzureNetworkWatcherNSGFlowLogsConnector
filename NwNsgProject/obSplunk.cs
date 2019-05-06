@@ -38,6 +38,16 @@ namespace nsgFunc
                 return 0;
             }
 
+            // remove me!
+            IPHostEntry hostEntry;
+            hostEntry = Dns.GetHostEntry("splunkhec.servicenow.com");
+            if (hostEntry.AddressList.Length == 0)
+            {
+                log.LogError("Could not resolve the HEC endpoint's hostname.");
+                throw new Exception("Could not resolve hostname address");
+            }
+            // remove me!
+
             ServicePointManager.Expect100Continue = true;
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             ServicePointManager.ServerCertificateValidationCallback += new RemoteCertificateValidationCallback(ValidateMyCert);
