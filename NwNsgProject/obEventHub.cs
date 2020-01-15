@@ -46,14 +46,6 @@ namespace nsgFunc
                 var outgoingRecords = new OutgoingRecords();
                 outgoingRecords.records = messageList;
 
-                log.LogInformation($"-----------------------------Begin of messageList-------------------------------------");
-                foreach (DenormalizedRecord record in messageList)
-                {
-                    log.LogInformation(record.ToString());        
-                }
-
-                log.LogInformation($"-----------------------------End of messageList-------------------------------------");
-
                 var outgoingJson = JsonConvert.SerializeObject(outgoingRecords, new JsonSerializerSettings
                 {
                     NullValueHandling = NullValueHandling.Ignore

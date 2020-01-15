@@ -87,6 +87,7 @@ class DenormalizedRecord
         this.destinationAddress = tuple.destinationAddress;
         this.sourcePort = tuple.sourcePort;
         this.destinationPort = tuple.destinationPort;
+        this.transportProtocol = tuple.transportProtocol;
         this.deviceDirection = tuple.deviceDirection;
         this.deviceAction = tuple.deviceAction;
         if (this.version >= 2.0)
