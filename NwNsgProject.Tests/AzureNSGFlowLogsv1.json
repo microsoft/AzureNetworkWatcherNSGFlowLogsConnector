@@ -1,0 +1,45 @@
+{
+    "records": [
+      {
+        "time": "2020-01-10T16:33:22.7107571Z",
+        "systemId": "f44a49e3-5697-434d-a5c0-11a84b446622",
+        "macAddress": "000D3A7F1340",
+        "category": "NetworkSecurityGroupFlowEvent",
+        "resourceId": "/SUBSCRIPTIONS/F087A016-314D-482C-93F1-88665DAFBA23/RESOURCEGROUPS/MC_MDRNWRK-DEV-AKS-RESOURCES_MDRNWRK-DEV-AKS_UKSOUTH/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/AKS-AGENTPOOL-14244569-NSG",
+        "operationName": "NetworkSecurityGroupFlowEvents",
+        "properties": {
+          "Version": 2,
+          "flows": [
+            {
+              "rule": "UserRule_aede8e1fd185211eaae4f962e72ea7eb-TCP-443-Internet",
+              "flows": [
+                {
+                  "mac": "000D3A7F1340",
+                  "flowTuples": [
+                    "1578673983,217.111.196.7,51.104.249.164,56141,443,T,I,A,B,,,,"
+                  ]
+                }
+              ]
+            },
+            {
+              "rule": "DefaultRule_AllowVnetOutBound",
+              "flows": [
+                {
+                  "mac": "000D3A7F1340",
+                  "flowTuples": [
+                    "1578673943,10.244.1.69,10.244.0.4,49663,53,U,O,A,B,,,,",
+                    "1578673975,10.201.4.6,10.244.2.21,53972,443,T,O,A,B,,,,",
+                    "1578673977,10.201.4.6,10.244.2.21,53763,80,T,O,A,E,4,246,2,126",
+                    "1578673980,10.201.4.6,10.244.2.21,54028,80,T,O,A,B,,,,",
+                    "1578673980,10.201.4.6,10.244.2.21,53772,443,T,O,A,E,4,246,2,126",
+                    "1578673983,10.201.4.6,10.244.2.21,56141,443,T,O,A,B,,,,",
+                    "1578673983,10.201.4.6,10.244.2.21,53805,80,T,O,A,E,4,246,2,126",
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }

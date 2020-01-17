@@ -3,6 +3,7 @@ public class EcsAll
 {
     [JsonProperty(PropertyName = "@timestamp")]
     public string timestamp { get; set; }
+    public string type {get; set;}
     public Agent agent {get; set;}
     public Rule rule {get; set;}
     public Ecs ecs {get; set;}
@@ -19,6 +20,7 @@ public class EcsAll
         this.agent = new Agent("AzureNetworkWatcherNSGFlowLogsConnector");
         this.rule = new Rule(denormalizedRecord.nsgRuleName);
         this.ecs = new Ecs("1.0.0");
+        this.type = "ecsevent";
         this.client = new Client(denormalizedRecord.mac);
         this.ecsevent = new EcsEvent(denormalizedRecord);
         this.resource = new Resource(denormalizedRecord.resourceId);

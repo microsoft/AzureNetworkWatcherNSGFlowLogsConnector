@@ -2,6 +2,11 @@ using System;
 using Xunit;
 using Xunit.Abstractions;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Logging.Abstractions;
+using nsgFunc;
+using System.IO;
+using System.Text;
+using System.Reflection;
 
 public class EcsTest
 {
@@ -112,6 +117,25 @@ public class EcsTest
         Assert.Equal("C", ecsAll.network.flowstate);
     }
 
+   [Fact]
+    public void bundleEcsMessageListsJsonTest() {
+        NullLogger logger = NullLogger.Instance;
+
+        string workingDirectory = Environment.CurrentDirectory;
+        string projectDirectory = Directory.GetParent(workingDirectory).Parent.FullName.Replace("bin", "");
+     
+        string flowlog = File.ReadAllText(projectDirectory + "AzureNSGFlowLogsv1.json", Encoding.UTF8);
+        int count = 0;
+        foreach(var bundleOfMessages in Util.bundleEcsMessageListsJson(flowlog, logger))
+        {
+            output.WriteLine("--------Start of bundleOfMessages----------");
+            output.WriteLine(bundleOfMessages);
+            output.WriteLine("--------End of bundleOfMessages----------");
+            count++;
+        }
+    
+        Assert.Equal(8, count);
+    }
 
     private static DenormalizedRecord createDenormalizedRecordV2()
     {
