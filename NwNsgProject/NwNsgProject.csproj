@@ -6,7 +6,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Azure.EventHubs" Version="2.2.1" />
     <PackageReference Include="Microsoft.Azure.WebJobs.Extensions.Storage" Version="3.0.3" />
-    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.24" />
+    <PackageReference Include="Microsoft.Azure.WebJobs.Script.ExtensionsMetadataGenerator" Version="1.1.8" />
+    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.36" />
   </ItemGroup>
   <ItemGroup>
     <None Update="host.json">
