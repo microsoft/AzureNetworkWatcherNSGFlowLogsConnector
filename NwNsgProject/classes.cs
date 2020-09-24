@@ -261,7 +261,7 @@ class DenormalizedRecord
         objectSize += this.destinationAddress.Length + 18 + 6;
         objectSize += this.sourcePort.Length + 10 + 6;
         objectSize += this.destinationPort.Length + 15 + 6;
-        objectSize += this.transportProtocol.Length + 17 + 6
+        objectSize += this.transportProtocol.Length + 17 + 6;
         objectSize += this.deviceDirection.Length + 15 + 6;
         objectSize += this.deviceAction.Length + 12 + 6;
         if (this.version >= 2.0)
